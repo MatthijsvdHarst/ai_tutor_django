@@ -100,15 +100,24 @@ WSGI_APPLICATION = "ai_tutor_django.wsgi.application"
 
 
 # Database ------------------------------------------------------------------
-if db_url := os.getenv("DATABASE_URL"):
-    DATABASES = {"default": parse_database_url(db_url)}
-else:
+
+if os.getenv("DJANGO_DEBUG"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+else:
+    DATABASES = {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': os.getenv("DJANGO_DATABASE_NAME"),
+        'USER': os.getenv("DJANGO_DATABASE_USER"),
+        'PASSWORD': os.getenv("DJANGO_DATABASE_PASSWORD"),
+        'HOST': 'localhost',
+        'PORT': '',
+    }
+
 
 
 # Authentication ------------------------------------------------------------
@@ -142,7 +151,7 @@ USE_TZ = True
 
 # Static / Media ------------------------------------------------------------
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = BASE_DIR / "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_URL = "media/"
