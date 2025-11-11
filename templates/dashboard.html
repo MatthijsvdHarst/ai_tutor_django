@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2>Hello, {{ user.full_name }}</h2>
+<section>
+    <h3>Your enrollments</h3>
+    <ul>
+        {% for enrollment in enrollments %}
+            <li>
+                <strong>{{ enrollment.course.name }}</strong>
+                – <a href="{% url 'chat-session' enrollment.course.id %}">Open chat</a>
+            </li>
+        {% empty %}
+            <li>No courses yet. Visit the course catalog.</li>
+        {% endfor %}
+    </ul>
+</section>
+<section>
+    <h3>Learning dashboards</h3>
+    <ul>
+        {% for dashboard in dashboards %}
+            <li>{{ dashboard.course }} – last login {{ dashboard.student_last_login|default:"n/a" }}</li>
+        {% empty %}
+            <li>No dashboards available.</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

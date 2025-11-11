@@ -1,0 +1,79 @@
+:root {
+    --alers-primary: #3b82f6;
+    --alers-accent: #1e293b;
+    --alers-bg: #f8fafc;
+}
+
+body {
+    background: var(--alers-bg);
+    color: #0f172a;
+}
+
+a {
+    color: var(--alers-primary);
+}
+
+a:hover {
+    color: #1d4ed8;
+}
+
+#header {
+    background: var(--alers-accent);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.3);
+}
+
+#header h1 a:link,
+#header h1 a:visited {
+    color: #fff;
+}
+
+.module caption,
+.dashboard .module h2,
+.module h2 {
+    background: var(--alers-primary);
+    color: #fff;
+    font-weight: 600;
+}
+
+.module table {
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+th {
+    background: #e2e8f0;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background: #f1f5f9;
+}
+
+.dashboard .module + .module {
+    margin-top: 1.5rem;
+}
+
+.submit-row input[type="submit"],
+.button.default {
+    background: var(--alers-primary);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 4px;
+}
+
+.submit-row input[type="submit"]:hover,
+.button.default:hover {
+    background: #2563eb;
+}
+
+.nav-link {
+    color: #cbd5f5;
+    text-decoration: none;
+    margin-left: 1rem;
+}
+
+.nav-link:hover {
+    color: #fff;
+}

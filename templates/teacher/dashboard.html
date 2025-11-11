@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Teacher Dashboards{% endblock %}
+{% block content %}
+<h2>Student dashboards</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Student</th>
+            <th>Course</th>
+            <th>Last login</th>
+            <th>Mean session (min)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for dashboard in dashboards %}
+            <tr>
+                <td>{{ dashboard.student }}</td>
+                <td>{{ dashboard.course }}</td>
+                <td>{{ dashboard.student_last_login|default:"n/a" }}</td>
+                <td>{{ dashboard.mean_session_minutes|floatformat:2 }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4">No dashboards yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

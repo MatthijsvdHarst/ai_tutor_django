@@ -1,0 +1,31 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Login Activity | {{ block.super }}{% endblock %}
+{% block content %}
+<div class="module">
+<h2>User Login Activity</h2>
+<table class="admin-table">
+    <thead>
+        <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>Total Logins</th>
+            <th>Last Login</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stat in login_stats %}
+            <tr>
+                <td>{{ stat.user__first_name }} {{ stat.user__last_name }} ({{ stat.user__username }})</td>
+                <td>{{ stat.user__email }}</td>
+                <td>{{ stat.total }}</td>
+                <td>{{ stat.last_seen|default:"n/a" }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="4">No logins captured yet.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

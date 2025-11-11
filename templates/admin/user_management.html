@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<h2>Configure user roles</h2>
+<p><a href="{% url 'admin-login-activity' %}">View login activity dashboard</a></p>
+<form method="post">
+    {% csrf_token %}
+    <label>Email</label>
+    <select name="email">
+        {% for user in users %}
+            <option value="{{ user.email }}">{{ user.email }} ({{ user.full_name }})</option>
+        {% endfor %}
+    </select>
+    <fieldset>
+        <legend>Roles</legend>
+        {% for role in roles %}
+            <label>
+                <input type="checkbox" name="roles" value="{{ role.name }}" />
+                {{ role.get_name_display }}
+            </label>
+        {% endfor %}
+    </fieldset>
+    <button type="submit">Update</button>
+</form>
+{% endblock %}

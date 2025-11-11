@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+{% block content %}
+<h2>Available courses</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for course in courses %}
+            <tr>
+                <td>{{ course.name }}</td>
+                <td>{{ course.description|truncatewords:30 }}</td>
+                <td>
+                    <a href="{% url 'course-enroll' course.id %}">Enroll</a>
+                    {% if course.id in enrolled_ids %}
+                        | <a href="{% url 'chat-session' course.id %}">Chat</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="3">No courses configured yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

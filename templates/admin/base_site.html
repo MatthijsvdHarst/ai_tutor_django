@@ -1,0 +1,17 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}A.L.E.R.S. Admin | {{ block.super }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/custom.css' %}">
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">A.L.E.R.S. Admin Console</h1>
+{% endblock %}
+
+{% block nav-global %}
+<a href="/" class="nav-link">← Back to site</a>
+{% endblock %}

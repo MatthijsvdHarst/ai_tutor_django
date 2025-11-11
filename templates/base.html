@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}A.L.E.R.S.{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <style>
+        body { padding: 1.5rem; }
+        header { margin-bottom: 2rem; }
+        .chat-history { max-height: 50vh; overflow-y: auto; margin-bottom: 1rem; padding: 1rem; border: 1px solid #ddd; border-radius: 0.4rem; }
+        .chat-message { margin-bottom: 1rem; }
+        .chat-message.system { color: #888; }
+        .chat-message.assistant { color: #0f5132; }
+        .chat-message.user { color: #0d6efd; }
+    </style>
+</head>
+<body>
+<header>
+    <nav>
+        <ul>
+            <li><a href="{% url 'home' %}">Home</a></li>
+            {% if user.is_authenticated %}
+                <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                <li><a href="{% url 'courses' %}">Courses</a></li>
+                <li><a href="{% url 'logout' %}">Logout</a></li>
+            {% else %}
+                <li><a href="{% url 'login' %}">Login</a></li>
+                <li><a href="{% url 'register' %}">Register</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% if messages %}
+        <div>
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+</header>
+<main>
+    {% block content %}{% endblock %}
+</main>
+</body>
+</html>
