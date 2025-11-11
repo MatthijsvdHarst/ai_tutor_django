@@ -110,12 +110,14 @@ if os.getenv("DJANGO_DEBUG"):
     }
 else:
     DATABASES = {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.getenv("DJANGO_DATABASE_NAME"),
-        'USER': os.getenv("DJANGO_DATABASE_USER"),
-        'PASSWORD': os.getenv("DJANGO_DATABASE_PASSWORD"),
-        'HOST': 'localhost',
-        'PORT': '',
+        "default": {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': os.getenv("DJANGO_DATABASE_NAME"),
+            'USER': os.getenv("DJANGO_DATABASE_USER"),
+            'PASSWORD': os.getenv("DJANGO_DATABASE_PASSWORD"),
+            'HOST': 'localhost',
+            'PORT': '',
+        }
     }
 
 
