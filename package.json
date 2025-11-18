@@ -1,0 +1,11 @@
+{
+  "name": "ai-tutor-ui",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.js -i ./assets/tailwind.css -o ./static/css/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.10"
+  }
+}

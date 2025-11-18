@@ -10,6 +10,8 @@
             <th>Email</th>
             <th>Total Logins</th>
             <th>Last Login</th>
+            <th>First Login</th>
+            <th>Active Span (min)</th>
         </tr>
     </thead>
     <tbody>
@@ -19,10 +21,18 @@
                 <td>{{ stat.user__email }}</td>
                 <td>{{ stat.total }}</td>
                 <td>{{ stat.last_seen|default:"n/a" }}</td>
+                <td>{{ stat.first_seen|default:"n/a" }}</td>
+                <td>
+                    {% if stat.active_minutes %}
+                        {{ stat.active_minutes }}
+                    {% else %}
+                        n/a
+                    {% endif %}
+                </td>
             </tr>
         {% empty %}
             <tr>
-                <td colspan="4">No logins captured yet.</td>
+                <td colspan="6">No logins captured yet.</td>
             </tr>
         {% endfor %}
     </tbody>

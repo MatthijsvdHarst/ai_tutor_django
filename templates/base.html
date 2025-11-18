@@ -1,45 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}A.L.E.R.S.{% endblock %}</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
-    <style>
-        body { padding: 1.5rem; }
-        header { margin-bottom: 2rem; }
-        .chat-history { max-height: 50vh; overflow-y: auto; margin-bottom: 1rem; padding: 1rem; border: 1px solid #ddd; border-radius: 0.4rem; }
-        .chat-message { margin-bottom: 1rem; }
-        .chat-message.system { color: #888; }
-        .chat-message.assistant { color: #0f5132; }
-        .chat-message.user { color: #0d6efd; }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{% block title %}A.L.E.R.S.{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<header>
-    <nav>
-        <ul>
-            <li><a href="{% url 'home' %}">Home</a></li>
-            {% if user.is_authenticated %}
-                <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
-                <li><a href="{% url 'courses' %}">Courses</a></li>
-                <li><a href="{% url 'logout' %}">Logout</a></li>
-            {% else %}
-                <li><a href="{% url 'login' %}">Login</a></li>
-                <li><a href="{% url 'register' %}">Register</a></li>
-            {% endif %}
-        </ul>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+<header class="bg-white border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <a href="{% url 'home' %}" class="text-2xl font-semibold text-blue-600">A.L.E.R.S.</a>
+    <nav class="flex items-center gap-4 text-sm font-medium">
+      <a href="{% url 'home' %}" class="hover:text-blue-600 transition-colors">Home</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'dashboard' %}" class="hover:text-blue-600 transition-colors">Dashboard</a>
+        <a href="{% url 'courses' %}" class="hover:text-blue-600 transition-colors">Courses</a>
+        {% if user.is_superuser %}
+          <a href="{% url 'admin-login-activity' %}" class="hover:text-blue-600 transition-colors">Login stats</a>
+        {% endif %}
+        <a href="{% url 'logout' %}"
+           class="px-3 py-1.5 rounded-full bg-slate-900 text-white hover:bg-slate-800 transition-colors">Logout</a>
+      {% else %}
+        <a href="{% url 'login' %}" class="hover:text-blue-600 transition-colors">Login</a>
+        <a href="{% url 'register' %}"
+           class="px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors">Register</a>
+      {% endif %}
     </nav>
-    {% if messages %}
-        <div>
-            {% for message in messages %}
-                <p>{{ message }}</p>
-            {% endfor %}
-        </div>
-    {% endif %}
+  </div>
 </header>
-<main>
-    {% block content %}{% endblock %}
+<main class="max-w-6xl mx-auto px-4 py-10">
+  {% block content %}{% endblock %}
 </main>
 </body>
 </html>

@@ -1,8 +1,86 @@
 {% extends "base.html" %}
-{% block title %}Welcome | A.L.E.R.S.{% endblock %}
+{% block title %}Welcome to A.L.E.R.S.{% endblock %}
 {% block content %}
-<section>
-    <h1>A.L.E.R.S. – Adaptive Learning Environment Research Suite</h1>
-    <p>The future of education, rebuilt with Django. Sign in to explore courses, personalized chat sessions, and teacher dashboards.</p>
+<section class="grid gap-12 lg:grid-cols-5 items-center">
+    <div class="lg:col-span-3 space-y-6">
+        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Adaptive Learning Environment</p>
+        <h1 class="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight">
+            Personalized tutoring powered by AI instructors and real-time analytics.
+        </h1>
+        <p class="text-lg text-slate-600">
+            A.L.E.R.S. combines curated curricula, dynamic profiles, and GPT-driven instruction to help every learner thrive.
+            Teachers and admins get dashboards with actionable insights, while students enjoy tailored conversations.
+        </p>
+        <div class="flex flex-wrap gap-3">
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}" class="inline-flex items-center px-6 py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors">
+                    Open Dashboard
+                </a>
+                <a href="{% url 'courses' %}" class="inline-flex items-center px-6 py-3 rounded-full border border-slate-300 text-slate-800 font-semibold hover:border-slate-400 transition-colors">
+                    Browse Courses
+                </a>
+            {% else %}
+                <a href="{% url 'register' %}" class="inline-flex items-center px-6 py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors">
+                    Get started
+                </a>
+                <a href="{% url 'login' %}" class="inline-flex items-center px-6 py-3 rounded-full border border-slate-300 text-slate-800 font-semibold hover:border-slate-400 transition-colors">
+                    Sign in
+                </a>
+            {% endif %}
+        </div>
+        <dl class="grid grid-cols-3 gap-4 text-center">
+            <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+                <dt class="text-sm text-slate-500">Courses</dt>
+                <dd class="text-2xl font-bold text-slate-900">{{course_count}}</dd>
+            </div>
+            <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+                <dt class="text-sm text-slate-500">AI Instructors</dt>
+                <dd class="text-2xl font-bold text-slate-900">{{ persona_count }} personas</dd>
+            </div>
+            <div class="rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+                <dt class="text-sm text-slate-500">Dashboards</dt>
+                <dd class="text-2xl font-bold text-slate-900">Realtime</dd>
+            </div>
+        </dl>
+    </div>
+    <div class="lg:col-span-2">
+        <div class="rounded-3xl bg-white border border-slate-100 shadow-xl overflow-hidden">
+            <div class="bg-gradient-to-br from-blue-500 to-purple-600 text-white p-6">
+                <p class="text-sm uppercase tracking-wide font-semibold">Live session snippet</p>
+                <p class="mt-2 text-lg font-medium">“How can I strengthen my essay about the Roman Empire?”</p>
+            </div>
+            <div class="p-6 space-y-4 text-sm text-slate-700">
+                <div class="flex gap-3">
+                    <span class="px-3 py-1 rounded-full bg-blue-100 text-blue-600 font-semibold text-xs">Instructor</span>
+                    <p>Let's analyze your current thesis and highlight supporting evidence first…</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="px-3 py-1 rounded-full bg-slate-900 text-white font-semibold text-xs">Student</span>
+                    <p>I'm arguing that Augustus stabilized Rome through reforms—need stronger examples.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="px-3 py-1 rounded-full bg-blue-100 text-blue-600 font-semibold text-xs">Instructor</span>
+                    <p>Consider referencing the Praetorian Guard, provincial restructuring, and tax policy…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="mt-16 grid gap-6 lg:grid-cols-3">
+    <div class="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
+        <div class="text-blue-600 text-2xl mb-4">🧠</div>
+        <h3 class="text-xl font-semibold text-slate-900 mb-2">Adaptive chat sessions</h3>
+        <p class="text-slate-600">Each conversation starts with targeted system prompts based on course goals, profiles, and prerequisites.</p>
+    </div>
+    <div class="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
+        <div class="text-blue-600 text-2xl mb-4">📊</div>
+        <h3 class="text-xl font-semibold text-slate-900 mb-2">Teacher dashboards</h3>
+        <p class="text-slate-600">Monitor skill mastery, affective and behavioral metrics, and login activity in real time.</p>
+    </div>
+    <div class="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
+        <div class="text-blue-600 text-2xl mb-4">🔐</div>
+        <h3 class="text-xl font-semibold text-slate-900 mb-2">Secure access</h3>
+        <p class="text-slate-600">Role-based permissions, signal-driven login tracking, and environment-managed secrets keep data safe.</p>
+    </div>
 </section>
 {% endblock %}

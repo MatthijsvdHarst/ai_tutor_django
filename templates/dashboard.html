@@ -1,28 +1,66 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<h2>Hello, {{ user.full_name }}</h2>
-<section>
-    <h3>Your enrollments</h3>
-    <ul>
-        {% for enrollment in enrollments %}
-            <li>
-                <strong>{{ enrollment.course.name }}</strong>
-                – <a href="{% url 'chat-session' enrollment.course.id %}">Open chat</a>
-            </li>
-        {% empty %}
-            <li>No courses yet. Visit the course catalog.</li>
-        {% endfor %}
-    </ul>
-</section>
-<section>
-    <h3>Learning dashboards</h3>
-    <ul>
-        {% for dashboard in dashboards %}
-            <li>{{ dashboard.course }} – last login {{ dashboard.student_last_login|default:"n/a" }}</li>
-        {% empty %}
-            <li>No dashboards available.</li>
-        {% endfor %}
-    </ul>
+<section class="space-y-10">
+    <header class="text-center space-y-2">
+        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Welcome back</p>
+        <h2 class="text-3xl font-bold text-slate-900">Hi {{ user.full_name }}!</h2>
+        <p class="text-slate-500 text-sm">Pick up where you left off or explore your learning insights.</p>
+    </header>
+    <div class="grid gap-6 lg:grid-cols-2">
+        <article class="rounded-3xl bg-white border border-slate-100 shadow-sm p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-widest text-blue-600 font-semibold">Your courses</p>
+                    <h3 class="text-2xl font-bold text-slate-900">Active enrollments</h3>
+                </div>
+                <a href="{% url 'courses' %}" class="text-sm text-blue-600 font-semibold hover:text-blue-500 transition-colors">Browse catalog →</a>
+            </div>
+            <div class="space-y-3">
+                {% for enrollment in enrollments %}
+                    <div class="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-900">{{ enrollment.course.name }}</p>
+                            <p class="text-xs text-slate-500">Started {{ enrollment.starting_date|date:"M j, Y" }}</p>
+                        </div>
+                        <a href="{% url 'chat-session' enrollment.course.id %}" class="px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors">Open chat</a>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-500 text-center">No courses yet. Visit the course catalog.</p>
+                {% endfor %}
+            </div>
+        </article>
+        <article class="rounded-3xl bg-white border border-slate-100 shadow-sm p-6 space-y-4">
+            <div>
+                <p class="text-xs uppercase tracking-widest text-purple-600 font-semibold">Learning dashboards</p>
+                <h3 class="text-2xl font-bold text-slate-900">Performance insights</h3>
+            </div>
+            <div class="space-y-3">
+                {% for dashboard in dashboards %}
+                    <div class="rounded-2xl border border-slate-100 px-4 py-3">
+                        <p class="text-sm font-semibold text-slate-900">{{ dashboard.course }}</p>
+                        <p class="text-xs text-slate-500">Last login {{ dashboard.student_last_login|default:"n/a" }}</p>
+                        <p class="text-xs text-slate-500">Average session {{ dashboard.mean_session_minutes|floatformat:1 }} min</p>
+                    </div>
+                {% empty %}
+                    <p class="text-sm text-slate-500 text-center">No dashboards available.</p>
+                {% endfor %}
+            </div>
+        </article>
+    </div>
+    <div class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+            <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Active courses</p>
+            <p class="text-3xl font-bold text-slate-900">{{ enrollments|length }}</p>
+        </div>
+        <div class="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+            <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Dashboards</p>
+            <p class="text-3xl font-bold text-slate-900">{{ dashboards|length }}</p>
+        </div>
+        <div class="rounded-2xl bg-white border border-slate-100 p-4 shadow-sm">
+            <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Next step</p>
+            <p class="text-sm text-slate-600">Head to <a href="{% url 'courses' %}" class="text-blue-600 font-semibold">courses</a> to enroll in new content.</p>
+        </div>
+    </div>
 </section>
 {% endblock %}

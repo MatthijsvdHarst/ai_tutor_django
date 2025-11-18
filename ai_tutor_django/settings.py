@@ -5,12 +5,12 @@ Django settings for ai_tutor_django project, configured via environment variable
 from __future__ import annotations
 
 import os
+from dotenv import load_dotenv
 from pathlib import Path
 from urllib.parse import urlparse
 
 # Paths ---------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 def env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
@@ -24,6 +24,9 @@ def env_list(name: str, default: list[str] | None = None) -> list[str]:
     if value is None:
         return default or []
     return [item.strip() for item in value.split(",") if item.strip()]
+
+load_dotenv(BASE_DIR / '.env')
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
 
 def parse_database_url(url: str) -> dict:
@@ -52,10 +55,8 @@ def parse_database_url(url: str) -> dict:
 
 # Security ------------------------------------------------------------------
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "change-me-in-production")
-DEBUG = env_bool("DJANGO_DEBUG")
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
-
 
 # Applications --------------------------------------------------------------
 INSTALLED_APPS = [
@@ -101,24 +102,12 @@ WSGI_APPLICATION = "ai_tutor_django.wsgi.application"
 
 # Database ------------------------------------------------------------------
 
-if os.getenv("DJANGO_DEBUG"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
-else:
-    DATABASES = {
-        "default": {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': os.getenv("DJANGO_DATABASE_NAME"),
-            'USER': os.getenv("DJANGO_DATABASE_USER"),
-            'PASSWORD': os.getenv("DJANGO_DATABASE_PASSWORD"),
-            'HOST': 'localhost',
-            'PORT': '',
-        }
-    }
+}
 
 
 
@@ -151,19 +140,27 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static / Media ------------------------------------------------------------
-STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+# STATIC
+# ----------------------------------------------------------------------
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+STATIC_URL = "/static/"
+
+STATICFILES_DIRS = [BASE_DIR / "ai_tutor_django/static"]
+
+# MEDIA
+# ----------------------------------------------------------------------
+
+MEDIA_URL = "/media/"
+
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", default=BASE_DIR / ".media")
 
 
 # Misc ----------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OPENAI_COMPLETION_TIMEOUT = int(os.getenv("OPENAI_COMPLETION_TIMEOUT", "60"))
 

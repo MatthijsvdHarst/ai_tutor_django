@@ -5,19 +5,26 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Min
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import ListView, TemplateView
 
 from .forms import ChatMessageForm, RegistrationForm
-from .models import Course, Dashboard, Enrollment, Role, User, LoginEvent
+from .models import Course, Dashboard, Enrollment, Role, User, LoginEvent, Actor
 from . import services
 
 
 class HomeView(TemplateView):
     template_name = "home.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["persona_count"] = Actor.objects.count()
+        context["course_count"] = Course.objects.count()
+
+        return context
 
 
 class UserLoginView(LoginView):
@@ -176,11 +183,31 @@ def admin_login_activity(request):
         messages.error(request, "Admin privileges required")
         return redirect("dashboard")
 
-    login_stats = (
-        LoginEvent.objects.values("user__id", "user__username", "user__email", "user__first_name", "user__last_name")
-        .annotate(total=Count("id"), last_seen=Max("logged_in_at"))
+    login_stats_query = (
+        LoginEvent.objects.values(
+            "user__id",
+            "user__username",
+            "user__email",
+            "user__first_name",
+            "user__last_name",
+        )
+        .annotate(
+            total=Count("id"),
+            last_seen=Max("logged_in_at"),
+            first_seen=Min("logged_in_at"),
+        )
         .order_by("-last_seen")
     )
+
+    login_stats = []
+    for stat in login_stats_query:
+        first = stat.get("first_seen")
+        last = stat.get("last_seen")
+        if first and last:
+            stat["active_minutes"] = int((last - first).total_seconds() / 60)
+        else:
+            stat["active_minutes"] = None
+        login_stats.append(stat)
 
     return render(
         request,

@@ -1,30 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Courses{% endblock %}
 {% block content %}
-<h2>Available courses</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Description</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for course in courses %}
-            <tr>
-                <td>{{ course.name }}</td>
-                <td>{{ course.description|truncatewords:30 }}</td>
-                <td>
-                    <a href="{% url 'course-enroll' course.id %}">Enroll</a>
-                    {% if course.id in enrolled_ids %}
-                        | <a href="{% url 'chat-session' course.id %}">Chat</a>
-                    {% endif %}
-                </td>
-            </tr>
-        {% empty %}
-            <tr><td colspan="3">No courses configured yet.</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="text-center mb-10">
+    <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Course catalogue</p>
+    <h2 class="text-3xl font-bold text-slate-900 mt-2">Discover tailored learning experiences</h2>
+    <p class="text-slate-600 mt-3">Enroll in a course to unlock AI-guided sessions that adapt to your goals.</p>
+</div>
+<div class="max-w-5xl mx-auto grid gap-6 md:grid-cols-2">
+    {% for course in courses %}
+        <article class="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 flex flex-col justify-between">
+            <div>
+                <h3 class="text-xl font-semibold text-slate-900">{{ course.name }}</h3>
+                <p class="text-sm text-slate-500 mt-1">{{ course.learning_goals.count }} learning goals</p>
+                <p class="text-slate-600 mt-4">{{ course.description|truncatewords:35 }}</p>
+            </div>
+            <div class="mt-6 flex items-center gap-3">
+                <a href="{% url 'course-enroll' course.id %}" class="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-semibold hover:bg-blue-500 transition-colors">
+                    Enroll
+                </a>
+                {% if course.id in enrolled_ids %}
+                    <a href="{% url 'chat-session' course.id %}" class="px-4 py-2 rounded-full border border-slate-300 text-sm font-semibold hover:border-slate-400 transition-colors">
+                        Resume Chat
+                    </a>
+                {% endif %}
+            </div>
+        </article>
+    {% empty %}
+        <p class="text-center col-span-full text-slate-500">No courses configured yet.</p>
+    {% endfor %}
+</div>
 {% endblock %}
