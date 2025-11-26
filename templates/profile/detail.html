@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load markdown_extras %}
+{% block title %}Profiel{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto space-y-6">
+    <header class="text-center space-y-2">
+        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Jouw profiel</p>
+        <h2 class="text-3xl font-bold text-slate-900">Intake-samenvatting</h2>
+        <p class="text-slate-600 text-sm">Deze samenvatting wordt gebruikt in alle cursussen om de uitleg en toon te personaliseren.</p>
+    </header>
+    {% if profile.is_completed and profile.summary %}
+        <article class="bg-white border border-slate-100 rounded-3xl shadow-sm p-6 space-y-4">
+            <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold">Samenvatting</p>
+            <div class="prose max-w-none text-slate-800">
+                {{ profile.summary|render_markdown }}
+            </div>
+            <p class="text-xs text-slate-500">Voltooid op {{ profile.completed_at|date:"M j, Y, H:i" }}</p>
+        </article>
+    {% else %}
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-sm">
+            Je intake is nog niet afgerond. <a href="{% url 'profile-chat' %}" class="font-semibold underline">Start hier</a> om je profiel op te bouwen.
+        </div>
+    {% endif %}
+    <div class="text-center">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center px-5 py-2 rounded-full border border-slate-300 text-sm font-semibold text-slate-800 hover:border-slate-400 transition-colors">
+            Terug naar dashboard
+        </a>
+    </div>
+</section>
+{% endblock %}

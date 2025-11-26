@@ -1,19 +1,48 @@
 from __future__ import annotations
 
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db.models import Count, Max, Min
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import ListView, TemplateView
 
-from .forms import ChatMessageForm, RegistrationForm
-from .models import Course, Dashboard, Enrollment, Role, User, LoginEvent, Actor
+from .forms import ChatMessageForm, ProfileChatMessageForm, RegistrationForm
+from .models import (
+    Actor,
+    Course,
+    Dashboard,
+    Enrollment,
+    LoginEvent,
+    ProfileChatSession,
+    ProfileMessage,
+    Role,
+    User,
+)
 from . import services
+
+
+def _redirect_if_profile_incomplete(request):
+    """
+    Redirect authenticated non-admin users to the profile chat until it is completed.
+    """
+    if not request.user.is_authenticated:
+        return None
+
+    # Allow superusers/admins to skip gating
+    if request.user.is_superuser or request.user.has_role(Role.RoleEnum.ADMIN):
+        return None
+
+    profile = services.get_or_create_student_profile(request.user)
+    profile_chat_path = reverse("profile-chat")
+    if not profile.is_completed and request.path != profile_chat_path:
+        messages.info(request, "Rond eerst je intake-chat af om je leerprofiel op te bouwen.")
+        return redirect("profile-chat")
+    return None
 
 
 class HomeView(TemplateView):
@@ -33,6 +62,15 @@ class UserLoginView(LoginView):
 
 class UserLogoutView(LogoutView):
     next_page = reverse_lazy("home")
+    template_name = "registration/logged_out.html"
+
+
+def logout_view(request):
+    """
+    Explicit logout handler that shows a confirmation page with a login link.
+    """
+    logout(request)
+    return render(request, "registration/logged_out.html")
 
 
 def register(request):
@@ -43,9 +81,10 @@ def register(request):
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            services.get_or_create_student_profile(user)
             login(request, user)
             messages.success(request, "Account created successfully")
-            return redirect("dashboard")
+            return redirect("profile-chat")
     else:
         form = RegistrationForm()
 
@@ -54,6 +93,12 @@ def register(request):
 
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "dashboard.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        redirect_response = _redirect_if_profile_incomplete(request)
+        if redirect_response:
+            return redirect_response
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -67,6 +112,12 @@ class CourseListView(LoginRequiredMixin, ListView):
     template_name = "courses/list.html"
     context_object_name = "courses"
 
+    def dispatch(self, request, *args, **kwargs):
+        redirect_response = _redirect_if_profile_incomplete(request)
+        if redirect_response:
+            return redirect_response
+        return super().dispatch(request, *args, **kwargs)
+
     def get_queryset(self):
         return Course.objects.prefetch_related("learning_goals")
 
@@ -78,6 +129,10 @@ class CourseListView(LoginRequiredMixin, ListView):
 
 @login_required
 def enroll(request, pk: int):
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return redirect_response
+
     course = get_object_or_404(Course, pk=pk)
     enrollment, created = Enrollment.objects.get_or_create(user=request.user, course=course)
     if created:
@@ -89,6 +144,10 @@ def enroll(request, pk: int):
 
 @login_required
 def chat_session(request, pk: int):
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return redirect_response
+
     enrollment = get_object_or_404(Enrollment, course_id=pk, user=request.user)
     enrollment.last_login = timezone.now()
     enrollment.save(update_fields=["last_login"])
@@ -141,6 +200,10 @@ def chat_session(request, pk: int):
 
 @login_required
 def teacher_dashboard(request):
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return redirect_response
+
     if not (request.user.has_role(Role.RoleEnum.TEACHER) or request.user.has_role(Role.RoleEnum.ADMIN)):
         messages.error(request, "Teacher privileges required")
         return redirect("dashboard")
@@ -155,6 +218,10 @@ def teacher_dashboard(request):
 
 @login_required
 def admin_user_management(request):
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return redirect_response
+
     if not request.user.has_role(Role.RoleEnum.ADMIN):
         messages.error(request, "Admin privileges required")
         return redirect("dashboard")
@@ -179,6 +246,10 @@ def admin_user_management(request):
 
 @login_required
 def admin_login_activity(request):
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return redirect_response
+
     if not request.user.has_role(Role.RoleEnum.ADMIN):
         messages.error(request, "Admin privileges required")
         return redirect("dashboard")
@@ -213,4 +284,77 @@ def admin_login_activity(request):
         request,
         "admin/login_activity.html",
         {"login_stats": login_stats},
+    )
+
+
+@login_required
+def profile_chat(request):
+    profile = services.get_or_create_student_profile(request.user)
+    if profile.is_completed:
+        messages.info(request, "Je intake-profiel is al afgerond.")
+        return redirect("profile-detail")
+
+    session = (
+        ProfileChatSession.objects.filter(user=request.user, end__isnull=True)
+        .order_by("-start")
+        .first()
+    )
+    if session is None:
+        session = ProfileChatSession.objects.create(user=request.user)
+
+    if request.method == "POST":
+        if request.POST.get("action") == "finish":
+            has_student_input = session.messages.filter(role=ProfileMessage.Role.USER).exists()
+            if not has_student_input:
+                messages.error(request, "De intake heeft nog geen antwoorden. Deel eerst iets over jezelf.")
+                return redirect("profile-chat")
+
+            try:
+                summary_text = services.summarize_profile_chat(session)
+            except RuntimeError as exc:
+                messages.error(request, str(exc))
+                return redirect("profile-chat")
+            except Exception:
+                messages.error(request, "Samenvatten is nu niet mogelijk. Probeer het opnieuw.")
+                return redirect("profile-chat")
+            profile.mark_completed(summary_text)
+            session.end_session()
+            messages.success(request, "Je profiel is opgeslagen. Je kunt nu verder met het platform.")
+            return redirect("dashboard")
+
+        form = ProfileChatMessageForm(request.POST)
+        if form.is_valid():
+            try:
+                services.stream_profile_chat_completion(session=session, user_message=form.cleaned_data["message"])
+            except RuntimeError as exc:
+                messages.error(request, str(exc))
+                return redirect("profile-chat")
+            except Exception:
+                messages.error(request, "Profiel assistent is tijdelijk niet beschikbaar. Probeer opnieuw.")
+                return redirect("profile-chat")
+            messages.success(request, "Bericht verstuurd")
+            return redirect("profile-chat")
+    else:
+        form = ProfileChatMessageForm()
+
+    return render(
+        request,
+        "profile/chat.html",
+        {
+            "session": session,
+            "messages": session.messages.order_by("created_at"),
+            "form": form,
+        },
+    )
+
+
+@login_required
+def profile_detail(request):
+    profile = services.get_or_create_student_profile(request.user)
+    if not profile.is_completed:
+        messages.info(request, "Rond eerst je intake-chat af om een samenvatting te zien.")
+    return render(
+        request,
+        "profile/detail.html",
+        {"profile": profile},
     )

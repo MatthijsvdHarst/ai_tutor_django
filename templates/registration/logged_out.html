@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Uitgelogd{% endblock %}
+{% block content %}
+<section class="flex justify-center">
+    <div class="w-full max-w-md bg-white border border-slate-100 rounded-3xl shadow-xl p-8 space-y-6 text-center">
+        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Je bent uitgelogd</p>
+        <h2 class="text-3xl font-bold text-slate-900">Tot snel!</h2>
+        <p class="text-sm text-slate-600">Klik hieronder om opnieuw in te loggen.</p>
+        <a href="{% url 'login' %}" class="inline-flex items-center justify-center px-6 py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors">
+            Naar login
+        </a>
+    </div>
+</section>
+{% endblock %}

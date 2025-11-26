@@ -202,6 +202,18 @@ class Enrollment(models.Model):
                 }
             )
 
+        student_profile = getattr(self.user, "student_profile", None)
+        if student_profile and student_profile.is_completed and student_profile.summary:
+            system_prompts.append(
+                {
+                    "role": Message.Role.SYSTEM,
+                    "content": (
+                        "Learner Intake Summary (preferences and goals):\n"
+                        f"{student_profile.summary}"
+                    ),
+                }
+            )
+
         system_prompts.append(
             {
                 "role": Message.Role.SYSTEM,
@@ -298,3 +310,53 @@ class LoginEvent(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.user} @ {self.logged_in_at.isoformat()}"
+
+
+class StudentProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name="student_profile", on_delete=models.CASCADE)
+    summary = models.TextField(blank=True)
+    is_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    def mark_completed(self, summary: str) -> None:
+        self.summary = summary
+        self.is_completed = True
+        self.completed_at = timezone.now()
+        self.save(update_fields=["summary", "is_completed", "completed_at", "updated_at"])
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"StudentProfile({self.user.username})"
+
+
+class ProfileChatSession(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="profile_chat_sessions", on_delete=models.CASCADE)
+    start = models.DateTimeField(default=timezone.now)
+    end = models.DateTimeField(blank=True, null=True)
+
+    def end_session(self) -> None:
+        self.end = timezone.now()
+        self.save(update_fields=["end"])
+
+    def add_messages(self, messages: Iterable["ProfileMessage"]) -> None:
+        ProfileMessage.objects.bulk_create(messages)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"ProfileChatSession({self.user.username} @ {self.start.isoformat()})"
+
+
+class ProfileMessage(models.Model):
+    class Role(models.TextChoices):
+        USER = "user", "User"
+        SYSTEM = "system", "System"
+        ASSISTANT = "assistant", "Assistant"
+        TOOL = "tool", "Tool"
+
+    session = models.ForeignKey(ProfileChatSession, related_name="messages", on_delete=models.CASCADE)
+    role = models.CharField(max_length=20, choices=Role.choices)
+    content = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def to_chat_completion(self) -> dict:
+        return {"role": self.role, "content": self.content}

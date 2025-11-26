@@ -1,41 +1,53 @@
-{% extends "admin/base_site.html" %}
-{% block title %}Login Activity | {{ block.super }}{% endblock %}
+{% extends "base.html" %}
+{% block title %}Login activiteit{% endblock %}
 {% block content %}
-<div class="module">
-<h2>User Login Activity</h2>
-<table class="admin-table">
-    <thead>
-        <tr>
-            <th>User</th>
-            <th>Email</th>
-            <th>Total Logins</th>
-            <th>Last Login</th>
-            <th>First Login</th>
-            <th>Active Span (min)</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for stat in login_stats %}
-            <tr>
-                <td>{{ stat.user__first_name }} {{ stat.user__last_name }} ({{ stat.user__username }})</td>
-                <td>{{ stat.user__email }}</td>
-                <td>{{ stat.total }}</td>
-                <td>{{ stat.last_seen|default:"n/a" }}</td>
-                <td>{{ stat.first_seen|default:"n/a" }}</td>
-                <td>
-                    {% if stat.active_minutes %}
-                        {{ stat.active_minutes }}
-                    {% else %}
-                        n/a
-                    {% endif %}
-                </td>
-            </tr>
-        {% empty %}
-            <tr>
-                <td colspan="6">No logins captured yet.</td>
-            </tr>
-        {% endfor %}
-    </tbody>
-</table>
-</div>
+<section class="max-w-6xl mx-auto space-y-6">
+    <header class="text-center space-y-2">
+        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Admin</p>
+        <h2 class="text-3xl font-bold text-slate-900">Login activiteit</h2>
+        <p class="text-slate-600 text-sm">Overzicht van gebruikerslogins, laatste activiteit en sessieduur.</p>
+    </header>
+
+    <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600 uppercase tracking-wide text-xs">
+                <tr>
+                    <th class="px-4 py-3 text-left">Gebruiker</th>
+                    <th class="px-4 py-3 text-left">E-mail</th>
+                    <th class="px-4 py-3 text-left">Logins</th>
+                    <th class="px-4 py-3 text-left">Laatste login</th>
+                    <th class="px-4 py-3 text-left">Eerste login</th>
+                    <th class="px-4 py-3 text-left">Actieve minuten</th>
+                </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                {% for stat in login_stats %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3">
+                            <div class="font-semibold text-slate-900">{{ stat.user__first_name }} {{ stat.user__last_name }}</div>
+                            <div class="text-xs text-slate-500">{{ stat.user__username }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-700">{{ stat.user__email|default:"-" }}</td>
+                        <td class="px-4 py-3 text-slate-900 font-semibold">{{ stat.total }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ stat.last_seen|date:"M j, Y, H:i"|default:"n/a" }}</td>
+                        <td class="px-4 py-3 text-slate-700">{{ stat.first_seen|date:"M j, Y, H:i"|default:"n/a" }}</td>
+                        <td class="px-4 py-3 text-slate-700">
+                            {% if stat.active_minutes %}
+                                {{ stat.active_minutes }}
+                            {% else %}
+                                n/a
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-6 text-center text-slate-500">Nog geen logins geregistreerd.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
 {% endblock %}

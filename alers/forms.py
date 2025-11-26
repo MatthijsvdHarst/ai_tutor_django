@@ -35,3 +35,7 @@ class ChatMessageForm(forms.Form):
     def clean_model_override(self):
         value = self.cleaned_data["model_override"]
         return value or None
+
+
+class ProfileChatMessageForm(forms.Form):
+    message = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), required=True)

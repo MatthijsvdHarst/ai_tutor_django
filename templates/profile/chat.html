@@ -1,19 +1,11 @@
 {% extends "base.html" %}
-{% load static %}
-{% load markdown_extras %}
-{% block title %}Chat – {{ course.name }}{% endblock %}
+{% block title %}Profiel intake{% endblock %}
 {% block content %}
 <section class="max-w-4xl mx-auto space-y-6">
     <header class="text-center space-y-2">
-        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Live session</p>
-        <h2 class="text-3xl font-bold text-slate-900">{{ course.name }}</h2>
-        <p class="text-slate-600 text-sm">AI instructor conversations tailored to your curriculum.</p>
-        <a href="{% static 'Dictaat_embedded_systems.pdf' %}" download class="inline-flex items-center gap-2 text-sm text-blue-600 font-semibold hover:text-blue-500">
-            Download dictaat (PDF)
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 10l5 5 5-5M12 15V3m9 12v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-            </svg>
-        </a>
+        <p class="text-sm uppercase tracking-widest text-blue-600 font-semibold">Intake</p>
+        <h2 class="text-3xl font-bold text-slate-900">Bouw je leerprofiel op</h2>
+        <p class="text-slate-600 text-sm">De AI stelt een paar vragen over je interesses en hoe je het liefst uitleg krijgt. Dit profiel wordt gebruikt in alle toekomstige cursussen.</p>
     </header>
     <div id="chat-scroll" class="bg-white border border-slate-100 rounded-3xl shadow-lg p-6 h-[60vh] overflow-y-auto space-y-4 scroll-smooth">
         {% for message in messages %}
@@ -21,16 +13,14 @@
                 <div class="flex">
                     <div class="ml-0 mr-auto max-w-xl rounded-2xl bg-blue-50 px-5 py-3 text-sm text-slate-700 shadow-sm">
                         <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold mb-1">{{ message.get_role_display }}</p>
-                        <div class="prose prose-sm text-slate-800 max-w-none whitespace-pre-line">
-                            {{ message.content|render_markdown }}
-                        </div>
+                        <p>{{ message.content|linebreaks }}</p>
                     </div>
                 </div>
             {% elif message.role == 'user' %}
                 <div class="flex">
                     <div class="mr-0 ml-auto max-w-xl rounded-2xl bg-slate-900 text-white px-5 py-3 text-sm shadow-sm">
-                        <p class="text-xs uppercase tracking-wide text-slate-200 font-semibold mb-1">You</p>
-                        <p class="whitespace-pre-line">{{ message.content }}</p>
+                        <p class="text-xs uppercase tracking-wide text-slate-200 font-semibold mb-1">Jij</p>
+                        <p>{{ message.content|linebreaks }}</p>
                     </div>
                 </div>
             {% else %}
@@ -39,18 +29,24 @@
                 </div>
             {% endif %}
         {% empty %}
-            <p class="text-center text-slate-500">No messages yet. Say hi to your instructor!</p>
+            <p class="text-center text-slate-500">Start met een korte introductie over jezelf.</p>
         {% endfor %}
     </div>
     <form method="post" class="bg-white border border-slate-100 rounded-3xl shadow-lg p-4 flex items-center gap-3" id="chat-form">
         {% csrf_token %}
         <textarea name="{{ form.message.name }}" rows="2" class="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>{{ form.message.value|default_if_none:'' }}</textarea>
-        <input type="hidden" name="{{ form.model_override.name }}" value="{{ form.model_override.value|default_if_none:'' }}" />
         <button type="submit" class="inline-flex items-center gap-2 rounded-2xl bg-blue-600 text-white px-5 py-3 font-semibold text-sm hover:bg-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed" id="send-button">
-            <span>Send</span>
+            <span>Verstuur</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
             </svg>
+        </button>
+    </form>
+    <form method="post" class="text-center">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="finish"/>
+        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-800 hover:border-slate-400 transition-colors">
+            Opslaan & verder naar platform
         </button>
     </form>
 <div id="chat-spinner" class="fixed bottom-6 right-6 hidden items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-lg">
@@ -58,7 +54,7 @@
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
     </svg>
-    <span class="text-sm font-semibold">AI is generating a response…</span>
+    <span class="text-sm font-semibold">AI is aan het nadenken…</span>
 </div>
 
 <script>

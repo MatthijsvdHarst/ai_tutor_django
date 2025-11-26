@@ -13,7 +13,15 @@ try:
 except ImportError:  # pragma: no cover - optional dependency for tooling
     OpenAI = None
 
-from .models import ChatSession, Dashboard, Enrollment, Message
+from .models import (
+    ChatSession,
+    Dashboard,
+    Enrollment,
+    Message,
+    ProfileChatSession,
+    ProfileMessage,
+    StudentProfile,
+)
 
 if OpenAI and settings.OPENAI_API_KEY:
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -239,6 +247,97 @@ def stream_chat_completion(
     )
     session.add_messages(persisted_messages)
     return assistant_reply
+
+
+def get_or_create_student_profile(user) -> StudentProfile:
+    profile, _ = StudentProfile.objects.get_or_create(user=user)
+    return profile
+
+
+def build_profile_chat_history(session: ProfileChatSession) -> list[dict]:
+    return [message.to_chat_completion() for message in session.messages.order_by("created_at")]
+
+
+def stream_profile_chat_completion(*, session: ProfileChatSession, user_message: str) -> str:
+    """Chat with the intake assistant to gather learner preferences."""
+    if client is None:
+        raise RuntimeError(client_error or "OpenAI client is not configured.")
+
+    messages = build_responses_input(session, user_message)
+    try:
+        completion = client.responses.create(
+            model=settings.OPENAI_MODEL,
+            instructions=(
+                "Je bent een intake-assistent. Stel één voor één gerichte vragen aan de student om een profiel op te bouwen. "
+                "Vraag naar hobby's, voorkeursmanier van uitleg (kort/snappy of uitgebreid/stap-voor-stap), "
+                "taalvoorkeur en naar welke doelen de student wil toewerken. "
+                "Houd de toon vriendelijk, kort en in het Nederlands tenzij de student anders kiest. "
+                "Geef na elk student-antwoord een beknopte vervolgvraag of erkenning, maar bewaar de uiteindelijke samenvatting voor later."
+            ),
+            input=messages,
+            text={"format": {"type": "text"}},
+            temperature=0.7,
+            max_output_tokens=600,
+            top_p=1,
+        )
+    except Exception as exc:
+        print("OpenAI error (profile chat):", repr(exc))
+        raise
+
+    try:
+        assistant_reply = completion.output[0].content[0].text
+    except Exception:
+        assistant_reply = getattr(completion, "output_text", "") or ""
+
+    persisted: list[ProfileMessage] = []
+    if user_message:
+        persisted.append(
+            ProfileMessage(
+                session=session,
+                role=ProfileMessage.Role.USER,
+                content=user_message,
+            )
+        )
+    persisted.append(
+        ProfileMessage(
+            session=session,
+            role=ProfileMessage.Role.ASSISTANT,
+            content=assistant_reply,
+        )
+    )
+    session.add_messages(persisted)
+    return assistant_reply
+
+
+def summarize_profile_chat(session: ProfileChatSession) -> str:
+    """Summarize the intake conversation for later course personalization."""
+    if client is None:
+        raise RuntimeError(client_error or "OpenAI client is not configured.")
+
+    history = build_responses_input(session, user_message=None)
+    try:
+        completion = client.responses.create(
+            model=settings.OPENAI_MODEL,
+            instructions=(
+                "Vat de intake samen in maximaal 8 bullets. "
+                "Vermeld: belangrijkste hobby's/interesses, taal- of uitlegvoorkeur (kort vs. uitgebreid), "
+                "voorkeursleerwijze (voorbeelden, stappenplan), en doelen/ambities. "
+                "Gebruik bondige Nederlandse zinnen en benoem concrete voorkeuren die relevant zijn voor latere lessen."
+            ),
+            input=history,
+            text={"format": {"type": "text"}},
+            temperature=0.5,
+            max_output_tokens=300,
+            top_p=1,
+        )
+    except Exception as exc:
+        print("OpenAI error (profile summary):", repr(exc))
+        raise
+
+    try:
+        return completion.output[0].content[0].text
+    except Exception:
+        return getattr(completion, "output_text", "") or ""
 
 
 def update_dashboard(enrollment: Enrollment) -> Dashboard:
