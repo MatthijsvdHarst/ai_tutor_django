@@ -214,6 +214,19 @@ class Enrollment(models.Model):
                 }
             )
 
+        if student_profile and student_profile.learning_progress:
+            progress_entry = student_profile.learning_progress.get(str(self.course_id))
+            if progress_entry and progress_entry.get("summary"):
+                system_prompts.append(
+                    {
+                        "role": Message.Role.SYSTEM,
+                        "content": (
+                            "Course Progress Summary (last session):\n"
+                            f"{progress_entry.get('summary')}"
+                        ),
+                    }
+                )
+
         system_prompts.append(
             {
                 "role": Message.Role.SYSTEM,
@@ -254,6 +267,7 @@ class ChatSession(models.Model):
                     chat_session=self,
                     role=message["role"],
                     content=message["content"],
+                    is_visible=False if message["role"] == Message.Role.SYSTEM else True,
                 )
                 for message in system_messages
             ]
@@ -319,6 +333,7 @@ class StudentProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    learning_progress = models.JSONField(default=dict, blank=True)
 
     def mark_completed(self, summary: str) -> None:
         self.summary = summary

@@ -191,7 +191,7 @@ def chat_session(request, pk: int):
         "chat/session.html",
         {
             "session": session,
-            "messages": session.messages.order_by("created_at"),
+            "messages": session.messages.filter(is_visible=True).order_by("created_at"),
             "form": form,
             "course": enrollment.course,
         },

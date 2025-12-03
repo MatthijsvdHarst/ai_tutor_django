@@ -33,6 +33,7 @@ class ProfileIntakeTests(TestCase):
             user=self.user,
             summary="Prefer korte uitleg en veel voorbeelden.",
             is_completed=True,
+            learning_progress={"1": {"course": "Test Course", "summary": "We zijn bij H2, binair."}},
         )
         actor = Actor.objects.create(name="Tutor", model=Actor.OpenAIModel.GPT_4O_MINI)
         course = Course.objects.create(
@@ -53,6 +54,10 @@ class ProfileIntakeTests(TestCase):
         self.assertTrue(
             any(profile.summary in message["content"] for message in prompts),
             "Profile summary should be injected into course system prompts",
+        )
+        self.assertTrue(
+            any("H2" in message["content"] for message in prompts),
+            "Course progress summary should be injected when present",
         )
 
     @mock.patch("alers.services.summarize_profile_chat", return_value="Samenvatting test")

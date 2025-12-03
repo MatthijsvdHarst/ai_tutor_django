@@ -111,11 +111,12 @@ def stream_chat_completion(
 
     try:
         completion = client.responses.create(
-            model=model_override or settings.OPENAI_MODEL,
+            model="gpt-5-nano-2025-08-07",
+            # model=model_override or settings.OPENAI_MODEL,
             # optioneel: prompt-id gebruiken zoals jij doet
             prompt={
                 "id": "pmpt_691c2196cff4819688d497eccc90b4ee0f1a2f4b5a35e649",
-                "version": "1",
+                "version": "2",
             },
             # jouw lange system prompt
             instructions=(
@@ -213,9 +214,13 @@ def stream_chat_completion(
                 }
             ],
             temperature=1,
-            max_output_tokens=2048,
+            max_output_tokens=4048,
             top_p=1,
             store=True,
+            include=[
+                "reasoning.encrypted_content",
+                "web_search_call.action.sources"
+            ]
         )
     except Exception as e:
         # Heel handig om even in je console/logs te zien wat er misgaat
@@ -246,6 +251,25 @@ def stream_chat_completion(
         )
     )
     session.add_messages(persisted_messages)
+
+    # Update per-course learning progress summary on the student's profile.
+    try:
+        progress_summary = summarize_course_progress(session)
+        profile = get_or_create_student_profile(session.enrollment.user)
+        progress = profile.learning_progress or {}
+        progress[str(session.enrollment.course_id)] = {
+            "course": session.enrollment.course.name,
+            "summary": progress_summary,
+            "updated_at": timezone.now().isoformat(),
+        }
+        profile.learning_progress = progress
+        profile.save(update_fields=["learning_progress", "updated_at"])
+    except RuntimeError:
+        # Client not configured; skip silently to avoid breaking chat.
+        pass
+    except Exception as exc:
+        print("Updating learning_progress failed:", repr(exc))
+
     return assistant_reply
 
 
@@ -332,6 +356,37 @@ def summarize_profile_chat(session: ProfileChatSession) -> str:
         )
     except Exception as exc:
         print("OpenAI error (profile summary):", repr(exc))
+        raise
+
+    try:
+        return completion.output[0].content[0].text
+    except Exception:
+        return getattr(completion, "output_text", "") or ""
+
+
+def summarize_course_progress(session: ChatSession) -> str:
+    """Summarize a chat session to capture where the student is in the course."""
+    if client is None:
+        raise RuntimeError(client_error or "OpenAI client is not configured.")
+
+    history = build_chat_history(session)
+    course = session.enrollment.course
+    try:
+        completion = client.responses.create(
+            model=settings.OPENAI_MODEL,
+            instructions=(
+                "Vat dit gesprek kort samen zodat een volgende sessie kan doorgaan waar deze stopte. "
+                "Noem 3-6 bullets: huidige onderwerp, behaalde specificaties/leerdoelen, open vragen of fouten, "
+                "volgende logische stap. Gebruik bondig Nederlands."
+            ),
+            input=history,
+            text={"format": {"type": "text"}},
+            temperature=0.4,
+            max_output_tokens=250,
+            top_p=1,
+        )
+    except Exception as exc:
+        print("OpenAI error (course progress):", repr(exc))
         raise
 
     try:
