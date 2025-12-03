@@ -111,8 +111,6 @@ def stream_chat_completion(
 
     try:
         completion = client.responses.create(
-            model="gpt-5-nano-2025-08-07",
-            # model=model_override or settings.OPENAI_MODEL,
             # optioneel: prompt-id gebruiken zoals jij doet
             prompt={
                 "id": "pmpt_691c2196cff4819688d497eccc90b4ee0f1a2f4b5a35e649",
@@ -217,10 +215,6 @@ def stream_chat_completion(
             max_output_tokens=4048,
             top_p=1,
             store=True,
-            include=[
-                "reasoning.encrypted_content",
-                "web_search_call.action.sources"
-            ]
         )
     except Exception as e:
         # Heel handig om even in je console/logs te zien wat er misgaat
