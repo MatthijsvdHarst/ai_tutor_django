@@ -215,6 +215,7 @@ def stream_chat_completion(
             max_output_tokens=4048,
             top_p=1,
             store=True,
+            stream=True,
         )
     except Exception as e:
         # Heel handig om even in je console/logs te zien wat er misgaat
@@ -297,6 +298,7 @@ def stream_profile_chat_completion(*, session: ProfileChatSession, user_message:
             temperature=0.7,
             max_output_tokens=600,
             top_p=1,
+            stream=True
         )
     except Exception as exc:
         print("OpenAI error (profile chat):", repr(exc))
