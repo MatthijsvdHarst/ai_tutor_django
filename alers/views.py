@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import json
+
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db.models import Count, Max, Min
+from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.views.generic import ListView, TemplateView
 
 from .forms import ChatMessageForm, ProfileChatMessageForm, RegistrationForm
@@ -196,6 +201,78 @@ def chat_session(request, pk: int):
             "course": enrollment.course,
         },
     )
+
+
+@login_required
+@require_POST
+def chat_stream(request, pk: int):
+    """
+    SSE endpoint for streaming chat responses token-by-token.
+    Expects JSON body with 'message' field.
+    Returns Server-Sent Events with tokens as they arrive.
+    """
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return JsonResponse({"error": "Profile incomplete"}, status=403)
+
+    enrollment = get_object_or_404(Enrollment, course_id=pk, user=request.user)
+
+    # Parse JSON body
+    try:
+        data = json.loads(request.body)
+        user_message = data.get("message", "").strip()
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+    if not user_message:
+        return JsonResponse({"error": "Message is required"}, status=400)
+
+    # Get or create chat session
+    session = enrollment.get_newest_chat_session()
+    if session is None:
+        session = enrollment.create_new_session()
+
+    # Check for model override permissions (from request data if needed)
+    model_override = data.get("model_override")
+    if model_override and not (
+        request.user.has_role(Role.RoleEnum.GPT4_PRIVILEGED)
+        or request.user.has_role(Role.RoleEnum.ADMIN)
+    ):
+        return JsonResponse({"error": "GPT-4 access requires an elevated role."}, status=403)
+
+    def event_stream():
+        """Generator that yields SSE-formatted events."""
+        try:
+            for token in services.stream_chat_completion_generator(
+                session=session,
+                user_message=user_message,
+                model_override=model_override,
+            ):
+                # SSE format: data: <json>\n\n
+                event_data = json.dumps({"token": token})
+                yield f"data: {event_data}\n\n"
+
+            # Signal completion
+            yield f"data: {json.dumps({'done': True})}\n\n"
+
+            # Record activity after successful completion
+            services.record_chat_activity(enrollment, session)
+
+        except RuntimeError as exc:
+            error_data = json.dumps({"error": str(exc)})
+            yield f"data: {error_data}\n\n"
+        except Exception as exc:
+            print("Streaming error:", repr(exc))
+            error_data = json.dumps({"error": "Chat service is currently unavailable."})
+            yield f"data: {error_data}\n\n"
+
+    response = StreamingHttpResponse(
+        event_stream(),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"  # Disable nginx buffering
+    return response
 
 
 @login_required

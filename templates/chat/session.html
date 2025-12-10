@@ -53,32 +53,185 @@
             </svg>
         </button>
     </form>
-<div id="chat-spinner" class="fixed bottom-6 right-6 hidden items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-lg">
+<div id="chat-spinner" class="fixed bottom-6 right-6 hidden items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-lg z-50">
     <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
     </svg>
-    <span class="text-sm font-semibold">AI is generating a response…</span>
+    <span class="text-sm font-semibold" id="spinner-text">AI is generating a response…</span>
 </div>
 
 <script>
+(function() {
     const chatBox = document.getElementById('chat-scroll');
     const chatForm = document.getElementById('chat-form');
     const sendButton = document.getElementById('send-button');
     const spinner = document.getElementById('chat-spinner');
+    const spinnerText = document.getElementById('spinner-text');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    const streamUrl = '{% url "chat-stream" pk=course.pk %}';
+
     function scrollToBottom() {
         if (chatBox) {
-            chatBox.scrollTo({top: chatBox.scrollHeight, behavior: 'smooth'});
+            chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
         }
     }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function appendUserMessage(content) {
+        // Remove empty state message if present
+        const emptyMsg = chatBox.querySelector('p.text-center.text-slate-500');
+        if (emptyMsg) emptyMsg.remove();
+
+        const div = document.createElement('div');
+        div.className = 'flex';
+        div.innerHTML = `
+            <div class="mr-0 ml-auto max-w-xl rounded-2xl bg-slate-900 text-white px-5 py-3 text-sm shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-200 font-semibold mb-1">You</p>
+                <p class="whitespace-pre-line">${escapeHtml(content)}</p>
+            </div>
+        `;
+        chatBox.appendChild(div);
+        scrollToBottom();
+    }
+
+    function createAssistantBubble() {
+        const div = document.createElement('div');
+        div.className = 'flex';
+        div.innerHTML = `
+            <div class="ml-0 mr-auto max-w-xl rounded-2xl bg-blue-50 px-5 py-3 text-sm text-slate-700 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold mb-1">Assistant</p>
+                <div class="prose prose-sm text-slate-800 max-w-none whitespace-pre-line assistant-content">
+                    <span class="streaming-cursor animate-pulse">▌</span>
+                </div>
+            </div>
+        `;
+        chatBox.appendChild(div);
+        scrollToBottom();
+        return div.querySelector('.assistant-content');
+    }
+
+    function setLoading(loading) {
+        if (spinner) {
+            spinner.classList.toggle('hidden', !loading);
+            spinner.classList.toggle('flex', loading);
+        }
+        if (sendButton) {
+            sendButton.disabled = loading;
+        }
+    }
+
+    async function sendMessageStreaming(message) {
+        setLoading(true);
+
+        // Add user message to UI immediately
+        appendUserMessage(message);
+
+        // Create assistant bubble
+        const contentDiv = createAssistantBubble();
+        let fullResponse = '';
+
+        try {
+            const response = await fetch(streamUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ message: message }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                // Process complete SSE messages
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+
+                            if (data.token) {
+                                fullResponse += data.token;
+                                // Remove cursor, add text, re-add cursor
+                                const cursor = contentDiv.querySelector('.streaming-cursor');
+                                if (cursor) cursor.remove();
+                                contentDiv.insertAdjacentText('beforeend', data.token);
+                                contentDiv.insertAdjacentHTML('beforeend', '<span class="streaming-cursor animate-pulse">▌</span>');
+                                scrollToBottom();
+                            }
+
+                            if (data.done) {
+                                // Remove cursor when done
+                                const cursor = contentDiv.querySelector('.streaming-cursor');
+                                if (cursor) cursor.remove();
+                            }
+
+                            if (data.error) {
+                                const cursor = contentDiv.querySelector('.streaming-cursor');
+                                if (cursor) cursor.remove();
+                                contentDiv.innerHTML = `<span class="text-red-600">Error: ${escapeHtml(data.error)}</span>`;
+                            }
+                        } catch (parseError) {
+                            console.warn('Failed to parse SSE data:', line, parseError);
+                        }
+                    }
+                }
+            }
+
+            // Ensure cursor is removed at the end
+            const cursor = contentDiv.querySelector('.streaming-cursor');
+            if (cursor) cursor.remove();
+
+        } catch (error) {
+            console.error('Streaming error:', error);
+            const cursor = contentDiv.querySelector('.streaming-cursor');
+            if (cursor) cursor.remove();
+            contentDiv.innerHTML = `<span class="text-red-600">Error: ${escapeHtml(error.message || 'Failed to get response')}</span>`;
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // Initialize
     scrollToBottom();
+
     if (chatForm) {
-        chatForm.addEventListener('submit', () => {
-            if (spinner) spinner.classList.remove('hidden');
-            if (sendButton) sendButton.disabled = true;
-            setTimeout(scrollToBottom, 150);
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const textarea = chatForm.querySelector('textarea');
+            const message = textarea.value.trim();
+
+            if (!message) return;
+
+            // Clear textarea
+            textarea.value = '';
+
+            // Send message with streaming
+            await sendMessageStreaming(message);
         });
     }
+})();
 </script>
 </section>
 {% endblock %}
