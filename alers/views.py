@@ -9,6 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db.models import Count, Max, Min
 from django.http import JsonResponse, StreamingHttpResponse
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -78,21 +79,8 @@ def logout_view(request):
 
 
 def register(request):
-    if request.user.is_authenticated:
-        return redirect("dashboard")
-
-    if request.method == "POST":
-        form = RegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            services.get_or_create_student_profile(user)
-            login(request, user)
-            messages.success(request, "Account created successfully")
-            return redirect("profile-chat")
-    else:
-        form = RegistrationForm()
-
-    return render(request, "registration/register.html", {"form": form})
+    # Registration is disabled - return 404 to prevent public access
+    raise Http404("Registration is not available.")
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
