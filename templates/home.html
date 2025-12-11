@@ -20,10 +20,7 @@
                     Browse Courses
                 </a>
             {% else %}
-                <a href="{% url 'register' %}" class="inline-flex items-center px-6 py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors">
-                    Get started
-                </a>
-                <a href="{% url 'login' %}" class="inline-flex items-center px-6 py-3 rounded-full border border-slate-300 text-slate-800 font-semibold hover:border-slate-400 transition-colors">
+                <a href="{% url 'login' %}" class="inline-flex items-center px-6 py-3 rounded-full bg-blue-600 text-white font-semibold hover:bg-blue-500 transition-colors">
                     Sign in
                 </a>
             {% endif %}
