@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import json
+
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db.models import Count, Max, Min
+from django.http import JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic import ListView, TemplateView
 
 from .forms import ChatMessageForm, ProfileChatMessageForm, RegistrationForm
@@ -168,7 +172,7 @@ def chat_session(request, pk: int):
                 return redirect("chat-session", pk=pk)
 
             try:
-                services.stream_chat_completion(
+                services.complete_chat_once(
                     session=session,
                     user_message=form.cleaned_data["message"],
                     model_override=model_override,
@@ -288,6 +292,75 @@ def admin_login_activity(request):
 
 
 @login_required
+@require_POST
+def chat_session_stream(request, pk: int):
+    redirect_response = _redirect_if_profile_incomplete(request)
+    if redirect_response:
+        return redirect_response
+
+    enrollment = get_object_or_404(Enrollment, course_id=pk, user=request.user)
+    enrollment.last_login = timezone.now()
+    enrollment.save(update_fields=["last_login"])
+
+    session = enrollment.get_newest_chat_session()
+    if session is None:
+        session = enrollment.create_new_session()
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON payload"}, status=400)
+
+    form = ChatMessageForm(payload)
+    if not form.is_valid():
+        return JsonResponse({"error": "Ongeldig verzoek", "details": form.errors}, status=400)
+
+    model_override = form.cleaned_data["model_override"]
+    if model_override and not (
+        request.user.has_role(Role.RoleEnum.GPT4_PRIVILEGED)
+        or request.user.has_role(Role.RoleEnum.ADMIN)
+    ):
+        return JsonResponse({"error": "GPT-4 toegang is niet toegestaan voor dit account."}, status=403)
+
+    def event_stream():
+        def _sse(data: dict):
+            return f"data: {json.dumps(data)}\n\n"
+
+        yield _sse({"type": "status", "message": "started"})
+        try:
+            for delta in services.stream_chat_completion(
+                    session=session,
+                    user_message=form.cleaned_data["message"],
+                    model_override=model_override,
+            ):
+                if delta:
+                    yield _sse({"type": "token", "text": delta})
+            services.record_chat_activity(enrollment, session)
+            yield _sse({"type": "done"})
+        except RuntimeError as exc:
+            # Config/runtime issues we cannot recover from
+            yield _sse({"type": "error", "message": str(exc)})
+        except Exception as exc:
+            # Fallback: try non-streaming to still serve a reply
+            try:
+                text = services.complete_chat_once(
+                    session=session,
+                    user_message=form.cleaned_data["message"],
+                    model_override=model_override,
+                )
+                services.record_chat_activity(enrollment, session)
+                yield _sse({"type": "token", "text": text})
+                yield _sse({"type": "done"})
+            except Exception as exc2:
+                print("Streaming + fallback error:", repr(exc), repr(exc2))
+                yield _sse({"type": "error", "message": "Chat service is currently unavailable."})
+
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+@login_required
 def profile_chat(request):
     profile = services.get_or_create_student_profile(request.user)
     if profile.is_completed:
@@ -325,7 +398,7 @@ def profile_chat(request):
         form = ProfileChatMessageForm(request.POST)
         if form.is_valid():
             try:
-                services.stream_profile_chat_completion(session=session, user_message=form.cleaned_data["message"])
+                services.complete_profile_chat_once(session=session, user_message=form.cleaned_data["message"])
             except RuntimeError as exc:
                 messages.error(request, str(exc))
                 return redirect("profile-chat")
@@ -346,6 +419,62 @@ def profile_chat(request):
             "form": form,
         },
     )
+
+
+@login_required
+@require_POST
+def profile_chat_stream(request):
+    profile = services.get_or_create_student_profile(request.user)
+    if profile.is_completed:
+        return JsonResponse({"error": "Profiel is al afgerond."}, status=400)
+
+    session = (
+        ProfileChatSession.objects.filter(user=request.user, end__isnull=True)
+        .order_by("-start")
+        .first()
+    )
+    if session is None:
+        session = ProfileChatSession.objects.create(user=request.user)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON payload"}, status=400)
+
+    form = ProfileChatMessageForm(payload)
+    if not form.is_valid():
+        return JsonResponse({"error": "Ongeldig verzoek", "details": form.errors}, status=400)
+
+    def event_stream():
+        def _sse(data: dict):
+            return f"data: {json.dumps(data)}\n\n"
+
+        yield _sse({"type": "status", "message": "started"})
+        try:
+            for delta in services.stream_profile_chat_completion(
+                    session=session,
+                    user_message=form.cleaned_data["message"],
+            ):
+                if delta:
+                    yield _sse({"type": "token", "text": delta})
+            yield _sse({"type": "done"})
+        except RuntimeError as exc:
+            yield _sse({"type": "error", "message": str(exc)})
+        except Exception as exc:
+            try:
+                text = services.complete_profile_chat_once(
+                    session=session,
+                    user_message=form.cleaned_data["message"],
+                )
+                yield _sse({"type": "token", "text": text})
+                yield _sse({"type": "done"})
+            except Exception as exc2:
+                print("Profile stream error:", repr(exc), repr(exc2))
+                yield _sse({"type": "error", "message": "Profiel assistent is tijdelijk niet beschikbaar."})
+
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    return response
 
 
 @login_required
