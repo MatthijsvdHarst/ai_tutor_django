@@ -102,6 +102,9 @@
         chatBox.appendChild(userBubble.wrapper);
         scrollToBottom();
 
+        // Clear input immediately
+        if (messageField) messageField.value = '';
+
         // Assistant placeholder
         const assistantBubble = createMessageBubble('assistant', '');
         chatBox.appendChild(assistantBubble.wrapper);
