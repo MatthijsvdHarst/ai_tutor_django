@@ -55,8 +55,8 @@ def parse_database_url(url: str) -> dict:
 
 # Security ------------------------------------------------------------------
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "change-me-in-production")
-ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ["localhost", "127.0.0.1"])
-CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ["localhost", "127.0.0.1", "tutor.maivdbrink.com", "https://tutor.maivdbrink.com", "matthijsvanderharst.nl", "https://matthijsvanderharst.nl"])
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", ["https://tutor.maivdbrink.com", "https://matthijsvanderharst.nl"])
 
 # Applications --------------------------------------------------------------
 INSTALLED_APPS = [
