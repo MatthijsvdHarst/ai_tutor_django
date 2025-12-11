@@ -42,12 +42,13 @@
             </svg>
         </button>
     </form>
-    <form method="post" class="text-center">
+    <form method="post" class="text-center space-y-2">
         {% csrf_token %}
         <input type="hidden" name="action" value="finish"/>
         <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-800 hover:border-slate-400 transition-colors">
             Opslaan & verder naar platform
         </button>
+        <p class="text-xs text-slate-500" id="save-hint">Minimaal 6 antwoorden vereist. (nu: {{ user_message_count|default:0 }})</p>
     </form>
 <div id="chat-spinner" class="fixed bottom-6 right-6 hidden items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-lg">
     <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -63,6 +64,14 @@
     const sendButton = document.getElementById('send-button');
     const spinner = document.getElementById('chat-spinner');
     const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+    let userMessageCount = {{ user_message_count|default:0 }};
+
+    function updateSaveHint() {
+        const saveHint = document.getElementById('save-hint');
+        if (saveHint) {
+            saveHint.textContent = `Minimaal 6 antwoorden vereist. (nu: ${userMessageCount})`;
+        }
+    }
 
     function scrollToBottom() {
         if (chatBox) {
@@ -104,6 +113,10 @@
 
         // Clear input immediately
         if (messageField) messageField.value = '';
+
+        // Increment counter
+        userMessageCount += 1;
+        updateSaveHint();
 
         // Assistant placeholder
         const assistantBubble = createMessageBubble('assistant', '');
@@ -170,6 +183,7 @@
     }
 
     scrollToBottom();
+    updateSaveHint();
     if (chatForm) {
         chatForm.addEventListener('submit', streamMessage);
     }

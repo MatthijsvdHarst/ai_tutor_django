@@ -398,9 +398,12 @@ def summarize_profile_chat(session: ProfileChatSession) -> str:
             model=settings.OPENAI_MODEL,
             instructions=(
                 "Vat de intake samen in maximaal 8 bullets. "
+                "Gebruik het formaat: '• **Label:** antwoord' waarbij het label in bold is en het antwoord normaal. "
                 "Vermeld: belangrijkste hobby's/interesses, taal- of uitlegvoorkeur (kort vs. uitgebreid), "
                 "voorkeursleerwijze (voorbeelden, stappenplan), en doelen/ambities. "
-                "Gebruik bondige Nederlandse zinnen en benoem concrete voorkeuren die relevant zijn voor latere lessen."
+                "Gebruik bondige Nederlandse zinnen en benoem concrete voorkeuren die relevant zijn voor latere lessen. "
+                "Eindig direct na de laatste bullet; voeg geen vragen, uitnodigingen of conversatie-elementen toe. "
+                "Zorg dat elke bullet direct de informatie bevat, geen lege labels."
             ),
             input=history,
             text={"format": {"type": "text"}},
@@ -413,9 +416,29 @@ def summarize_profile_chat(session: ProfileChatSession) -> str:
         raise
 
     try:
-        return completion.output[0].content[0].text
+        summary = completion.output[0].content[0].text
     except Exception:
-        return getattr(completion, "output_text", "") or ""
+        summary = getattr(completion, "output_text", "") or ""
+    
+    # Remove common conversational endings that shouldn't be in a summary
+    endings_to_remove = [
+        "Als je meer wilt bespreken",
+        "Als je vragen hebt",
+        "Laat het me weten",
+        "Laat het me weten als",
+        "Als je specifieke vragen hebt",
+        "Als je meer wilt bespreken of specifieke vragen hebt",
+    ]
+    for ending in endings_to_remove:
+        # Remove the ending phrase and everything after it
+        idx = summary.find(ending)
+        if idx != -1:
+            summary = summary[:idx].strip()
+            # Also remove any trailing punctuation that might be left
+            summary = summary.rstrip(".,;:")
+            break
+    
+    return summary
 
 
 def summarize_course_progress(session: ChatSession) -> str:

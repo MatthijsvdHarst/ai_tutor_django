@@ -377,9 +377,9 @@ def profile_chat(request):
 
     if request.method == "POST":
         if request.POST.get("action") == "finish":
-            has_student_input = session.messages.filter(role=ProfileMessage.Role.USER).exists()
-            if not has_student_input:
-                messages.error(request, "De intake heeft nog geen antwoorden. Deel eerst iets over jezelf.")
+            user_message_count = session.messages.filter(role=ProfileMessage.Role.USER).count()
+            if user_message_count < 6:
+                messages.error(request, "Beantwoord minimaal 6 vragen voordat je opslaat.")
                 return redirect("profile-chat")
 
             try:
@@ -410,6 +410,8 @@ def profile_chat(request):
     else:
         form = ProfileChatMessageForm()
 
+    user_message_count = session.messages.filter(role=ProfileMessage.Role.USER).count()
+
     return render(
         request,
         "profile/chat.html",
@@ -417,6 +419,7 @@ def profile_chat(request):
             "session": session,
             "messages": session.messages.order_by("created_at"),
             "form": form,
+            "user_message_count": user_message_count,
         },
     )
 
