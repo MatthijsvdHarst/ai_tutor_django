@@ -32,7 +32,7 @@
             <p class="text-center text-slate-500">Start met een korte introductie over jezelf.</p>
         {% endfor %}
     </div>
-    <form method="post" class="bg-white border border-slate-100 rounded-3xl shadow-lg p-4 flex items-center gap-3" id="chat-form">
+    <form method="post" class="bg-white border border-slate-100 rounded-3xl shadow-lg p-4 flex items-center gap-3" id="chat-form" data-stream-url="{% url 'profile-chat-stream' %}">
         {% csrf_token %}
         <textarea name="{{ form.message.name }}" rows="2" class="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>{{ form.message.value|default_if_none:'' }}</textarea>
         <button type="submit" class="inline-flex items-center gap-2 rounded-2xl bg-blue-600 text-white px-5 py-3 font-semibold text-sm hover:bg-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed" id="send-button">
@@ -42,12 +42,13 @@
             </svg>
         </button>
     </form>
-    <form method="post" class="text-center">
+    <form method="post" class="text-center space-y-2">
         {% csrf_token %}
         <input type="hidden" name="action" value="finish"/>
         <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-800 hover:border-slate-400 transition-colors">
             Opslaan & verder naar platform
         </button>
+        <p class="text-xs text-slate-500" id="save-hint">Minimaal 6 antwoorden vereist. (nu: {{ user_message_count|default:0 }})</p>
     </form>
 <div id="chat-spinner" class="fixed bottom-6 right-6 hidden items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-lg">
     <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -62,18 +63,140 @@
     const chatForm = document.getElementById('chat-form');
     const sendButton = document.getElementById('send-button');
     const spinner = document.getElementById('chat-spinner');
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+    let userMessageCount = {{ user_message_count|default:0 }};
+
+    function updateSaveHint() {
+        const saveHint = document.getElementById('save-hint');
+        if (saveHint) {
+            saveHint.textContent = `Minimaal 6 antwoorden vereist. (nu: ${userMessageCount})`;
+        }
+    }
+
     function scrollToBottom() {
         if (chatBox) {
             chatBox.scrollTo({top: chatBox.scrollHeight, behavior: 'smooth'});
         }
     }
+
+    function createMessageBubble(role, text) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex';
+
+        const bubble = document.createElement('div');
+        bubble.classList.add('max-w-xl', 'rounded-2xl', 'px-5', 'py-3', 'text-sm', 'shadow-sm', 'whitespace-pre-line');
+
+        if (role === 'user') {
+            bubble.classList.add('ml-auto', 'bg-slate-900', 'text-white');
+            bubble.innerText = text;
+        } else {
+            bubble.classList.add('mr-auto', 'bg-blue-50', 'text-slate-800');
+            bubble.innerText = text || '';
+        }
+
+        wrapper.appendChild(bubble);
+        return {wrapper, bubble};
+    }
+
+    async function streamMessage(event) {
+        event.preventDefault();
+        if (!chatForm || !chatBox) return;
+
+        const messageField = chatForm.querySelector('textarea[name="{{ form.message.name }}"]');
+        const userText = (messageField?.value || '').trim();
+        if (!userText) return;
+
+        // User bubble immediately
+        const userBubble = createMessageBubble('user', userText);
+        chatBox.appendChild(userBubble.wrapper);
+        scrollToBottom();
+
+        // Clear input immediately
+        if (messageField) messageField.value = '';
+
+        // Increment counter
+        userMessageCount += 1;
+        updateSaveHint();
+
+        // Assistant placeholder
+        const assistantBubble = createMessageBubble('assistant', '');
+        chatBox.appendChild(assistantBubble.wrapper);
+        scrollToBottom();
+
+        if (spinner) spinner.classList.remove('hidden');
+        if (sendButton) sendButton.disabled = true;
+
+        try {
+            const response = await fetch(chatForm.dataset.streamUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken || '',
+                },
+                body: JSON.stringify({
+                    "{{ form.message.name }}": userText,
+                }),
+            });
+
+            if (!response.ok || !response.body) {
+                assistantBubble.bubble.innerText = 'Kon geen verbinding maken met de AI-service.';
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const {value, done} = await reader.read();
+                if (value) {
+                    buffer += decoder.decode(value, {stream: true});
+                    const parts = buffer.split('\n\n');
+                    buffer = parts.pop() || '';
+                    for (const part of parts) {
+                        const line = part.trim();
+                        if (!line.startsWith('data:')) continue;
+                        try {
+                            const payload = JSON.parse(line.replace(/^data:\s*/, ''));
+                            if (payload.type === 'token') {
+                                assistantBubble.bubble.innerText += payload.text;
+                                scrollToBottom();
+                            } else if (payload.type === 'error') {
+                                assistantBubble.bubble.innerText = payload.message || 'Er ging iets mis.';
+                                throw new Error(payload.message || 'stream error');
+                            }
+                        } catch (err) {
+                            console.error('Stream parse error', err);
+                        }
+                    }
+                }
+                if (done) break;
+            }
+        } catch (err) {
+            console.error(err);
+            assistantBubble.bubble.innerText = 'Er ging iets mis tijdens het streamen.';
+        } finally {
+            if (spinner) spinner.classList.add('hidden');
+            if (sendButton) sendButton.disabled = false;
+            scrollToBottom();
+        }
+    }
+
     scrollToBottom();
+    updateSaveHint();
     if (chatForm) {
-        chatForm.addEventListener('submit', () => {
-            if (spinner) spinner.classList.remove('hidden');
-            if (sendButton) sendButton.disabled = true;
-            setTimeout(scrollToBottom, 150);
-        });
+        chatForm.addEventListener('submit', streamMessage);
+        
+        // Handle Enter key to send message
+        const messageField = chatForm.querySelector('textarea[name="{{ form.message.name }}"]');
+        if (messageField) {
+            messageField.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    streamMessage(e);
+                }
+            });
+        }
     }
 </script>
 </section>
