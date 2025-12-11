@@ -186,6 +186,17 @@
     updateSaveHint();
     if (chatForm) {
         chatForm.addEventListener('submit', streamMessage);
+        
+        // Handle Enter key to send message
+        const messageField = chatForm.querySelector('textarea[name="{{ form.message.name }}"]');
+        if (messageField) {
+            messageField.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    streamMessage(e);
+                }
+            });
+        }
     }
 </script>
 </section>
