@@ -77,6 +77,7 @@ def logout_view(request):
     return render(request, "registration/logged_out.html")
 
 
+# todo also remove this then?
 def register(request):
     if request.user.is_authenticated:
         return redirect("dashboard")

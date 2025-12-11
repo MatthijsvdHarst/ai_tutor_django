@@ -23,8 +23,9 @@
            class="px-3 py-1.5 rounded-full bg-slate-900 text-white hover:bg-slate-800 transition-colors">Logout</a>
       {% else %}
         <a href="{% url 'login' %}" class="hover:text-blue-600 transition-colors">Login</a>
-        <a href="{% url 'register' %}"
-           class="px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors">Register</a>
+<!--        we decided with Hani to disable the register functionality for the experiment-->
+<!--        <a href="{% url 'register' %}"-->
+<!--           class="px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors">Register</a>-->
       {% endif %}
     </nav>
   </div>

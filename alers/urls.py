@@ -6,6 +6,7 @@ urlpatterns = [
     path("", views.HomeView.as_view(), name="home"),
     path("login/", views.UserLoginView.as_view(), name="login"),
     path("logout/", views.logout_view, name="logout"),
+#     todo if I disable register we get a 500
     path("register/", views.register, name="register"),
     path("profile/chat/", views.profile_chat, name="profile-chat"),
     path("profile/", views.profile_detail, name="profile-detail"),
