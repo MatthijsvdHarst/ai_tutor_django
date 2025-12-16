@@ -387,6 +387,65 @@ def complete_profile_chat_once(*, session: ProfileChatSession, user_message: str
     return "".join(parts)
 
 
+def generate_initial_chat_greeting(session: ChatSession) -> str:
+    """Generate an initial greeting message for a new chat session."""
+    if client is None:
+        raise RuntimeError(client_error or "OpenAI client is not configured.")
+
+    model_name = getattr(settings, "OPENAI_MODEL", None) or "gpt-4o-mini"
+    course = session.enrollment.course
+    
+    try:
+        messages = _build_chat_messages(session, user_message=None)
+        # Add a prompt to generate a greeting
+        messages.append({
+            "role": "user",
+            "content": "Start de sessie met een vriendelijke begroeting en vraag hoe ik je vandaag kan helpen met de cursus."
+        })
+        
+        completion = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=0.8,
+            max_tokens=200,
+            top_p=1,
+        )
+        return completion.choices[0].message.content
+    except Exception as exc:
+        print(f"Error generating initial chat greeting: {exc}")
+        # Return a fallback greeting
+        return f"Hallo! Welkom bij {course.name}. Hoe kan ik je vandaag helpen met de cursus?"
+
+
+def generate_initial_profile_greeting(session: ProfileChatSession) -> str:
+    """Generate an initial greeting message for a new profile chat session."""
+    if client is None:
+        raise RuntimeError(client_error or "OpenAI client is not configured.")
+
+    model_name = getattr(settings, "OPENAI_MODEL", None) or "gpt-4o-mini"
+    
+    try:
+        messages = _build_profile_messages(session, user_message=None)
+        # Add a prompt to generate a greeting
+        messages.append({
+            "role": "user",
+            "content": "Start de intake met een vriendelijke begroeting en stel de eerste vraag om het leerprofiel op te bouwen."
+        })
+        
+        completion = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=150,
+            top_p=1,
+        )
+        return completion.choices[0].message.content
+    except Exception as exc:
+        print(f"Error generating initial profile greeting: {exc}")
+        # Return a fallback greeting
+        return "Hallo! Welkom bij de intake. Laten we beginnen met het opbouwen van je leerprofiel. Wat zijn je belangrijkste hobby's of interesses?"
+
+
 def summarize_profile_chat(session: ProfileChatSession) -> str:
     """Summarize the intake conversation for later course personalization."""
     if client is None:
