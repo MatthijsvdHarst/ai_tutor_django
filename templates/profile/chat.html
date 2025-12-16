@@ -48,10 +48,16 @@
     <form method="post" class="text-center space-y-2">
         {% csrf_token %}
         <input type="hidden" name="action" value="finish"/>
-        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-800 hover:border-slate-400 transition-colors">
+        <button type="submit" id="save-button" {% if user_message_count|default:0 < 6 %}disabled{% endif %} class="inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95 {% if user_message_count|default:0 >= 6 %}border-2 border-green-500 bg-green-500 text-white px-6 py-3 hover:bg-green-600 hover:border-green-600 hover:shadow-lg hover:scale-110 cursor-pointer{% else %}text-slate-500 cursor-not-allowed opacity-60{% endif %}">
             Opslaan & verder naar platform
         </button>
-        <p class="text-xs text-slate-500" id="save-hint">Minimaal 6 antwoorden vereist. (nu: {{ user_message_count|default:0 }})</p>
+        <p class="text-xs {% if user_message_count|default:0 >= 6 %}text-green-600 font-semibold{% else %}text-slate-500{% endif %}" id="save-hint">
+            {% if user_message_count|default:0 >= 6 %}
+                ✓ Je hebt {{ user_message_count }} antwoorden gegeven. Je kunt nu opslaan!
+            {% else %}
+                Minimaal 6 antwoorden vereist. (nu: {{ user_message_count|default:0 }})
+            {% endif %}
+        </p>
     </form>
 <div id="chat-spinner" class="fixed bottom-6 right-6 hidden items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3 shadow-lg">
     <svg class="h-5 w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -71,8 +77,45 @@
 
     function updateSaveHint() {
         const saveHint = document.getElementById('save-hint');
+        const saveButton = document.getElementById('save-button');
+        
         if (saveHint) {
-            saveHint.textContent = `Minimaal 6 antwoorden vereist. (nu: ${userMessageCount})`;
+            if (userMessageCount >= 6) {
+                saveHint.textContent = `✓ Je hebt ${userMessageCount} antwoorden gegeven. Je kunt nu opslaan!`;
+                saveHint.className = 'text-xs text-green-600 font-semibold animate-pulse';
+                // Remove pulse after animation
+                setTimeout(() => {
+                    if (saveHint) {
+                        saveHint.className = 'text-xs text-green-600 font-semibold';
+                    }
+                }, 2000);
+            } else {
+                saveHint.textContent = `Minimaal 6 antwoorden vereist. (nu: ${userMessageCount})`;
+                saveHint.className = 'text-xs text-slate-500';
+            }
+        }
+        
+        if (saveButton) {
+            const wasReady = saveButton.classList.contains('bg-green-500');
+            const isNowReady = userMessageCount >= 6;
+            
+            if (isNowReady) {
+                // Green state - ready to save
+                saveButton.className = 'inline-flex items-center gap-2 rounded-full border-2 border-green-500 bg-green-500 text-white px-6 py-3 text-sm font-semibold hover:bg-green-600 hover:border-green-600 hover:shadow-lg transition-all duration-300 transform hover:scale-110 active:scale-95 cursor-pointer';
+                saveButton.disabled = false;
+                
+                // Add a bounce animation when it first becomes ready
+                if (!wasReady) {
+                    saveButton.classList.add('animate-bounce');
+                    setTimeout(() => {
+                        saveButton.classList.remove('animate-bounce');
+                    }, 1000);
+                }
+            } else {
+                // Gray state - not ready
+                saveButton.className = 'inline-flex items-center gap-2 rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-500 hover:border-slate-400 transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-not-allowed opacity-60';
+                saveButton.disabled = true;
+            }
         }
     }
 
