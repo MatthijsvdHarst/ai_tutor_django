@@ -362,6 +362,7 @@ def profile_chat(request):
     )
     if session is None:
         session = ProfileChatSession.objects.create(user=request.user)
+        session.start_session()
 
     if request.method == "POST":
         if request.POST.get("action") == "finish":
@@ -426,6 +427,8 @@ def profile_chat_stream(request):
     )
     if session is None:
         session = ProfileChatSession.objects.create(user=request.user)
+        session.start_session()
+        session.start_session()
 
     try:
         payload = json.loads(request.body.decode("utf-8"))

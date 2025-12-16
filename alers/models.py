@@ -272,6 +272,22 @@ class ChatSession(models.Model):
                 for message in system_messages
             ]
         )
+        # Generate initial AI greeting message if this is a new session
+        # Check if there are any visible messages (user or assistant) - system messages are not visible
+        if not self.messages.filter(is_visible=True).exists():
+            from . import services
+            try:
+                initial_message = services.generate_initial_chat_greeting(self)
+                if initial_message:
+                    Message.objects.create(
+                        chat_session=self,
+                        role=Message.Role.ASSISTANT,
+                        content=initial_message,
+                        is_visible=True,
+                    )
+            except Exception as exc:
+                # If AI greeting fails, continue without it
+                print(f"Failed to generate initial greeting: {exc}")
 
     def end_session(self) -> None:
         self.end = timezone.now()
@@ -349,6 +365,22 @@ class ProfileChatSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="profile_chat_sessions", on_delete=models.CASCADE)
     start = models.DateTimeField(default=timezone.now)
     end = models.DateTimeField(blank=True, null=True)
+
+    def start_session(self) -> None:
+        # Generate initial AI greeting message if this is a new session
+        if not self.messages.exists():
+            from . import services
+            try:
+                initial_message = services.generate_initial_profile_greeting(self)
+                if initial_message:
+                    ProfileMessage.objects.create(
+                        session=self,
+                        role=ProfileMessage.Role.ASSISTANT,
+                        content=initial_message,
+                    )
+            except Exception as exc:
+                # If AI greeting fails, continue without it
+                print(f"Failed to generate initial profile greeting: {exc}")
 
     def end_session(self) -> None:
         self.end = timezone.now()
