@@ -307,11 +307,21 @@ def _build_profile_messages(session: ProfileChatSession, user_message: str) -> l
         {
             "role": "system",
             "content": (
-                "Je bent een intake-assistent. Stel één voor één gerichte vragen aan de student om een profiel op te bouwen. "
+                "Je bent een intake-assistent. Je enige taak is om een leerprofiel op te bouwen door gerichte vragen te stellen. "
                 "Vraag naar hobby's, voorkeursmanier van uitleg (kort/snappy of uitgebreid/stap-voor-stap), "
                 "taalvoorkeur en naar welke doelen de student wil toewerken. "
                 "Houd de toon vriendelijk, kort en in het Nederlands tenzij de student anders kiest. "
-                "Geef na elk student-antwoord een beknopte vervolgvraag of erkenning, maar bewaar de uiteindelijke samenvatting voor later."
+                "Geef na elk student-antwoord een beknopte vervolgvraag of erkenning, maar bewaar de uiteindelijke samenvatting voor later.\n\n"
+                "BELANGRIJK - Je mag NIET onderwijzen of educatieve vragen beantwoorden:\n"
+                "- Geef GEEN uitleg over cursusstof, theorie, of technische onderwerpen\n"
+                "- Beantwoord GEEN vragen over hoe iets werkt, berekeningen, of concepten\n"
+                "- Los GEEN opdrachten of oefeningen op\n"
+                "- Geef GEEN voorbeelden van cursusmateriaal\n\n"
+                "Als de student een educatieve vraag stelt of om uitleg vraagt:\n"
+                "- Vriendelijk maar duidelijk zeggen dat je hier alleen bent voor de intake\n"
+                "- Verwijs de student naar de cursus-chats waar de AI-instructeur kan helpen\n"
+                "- Ga daarna terug naar het stellen van intake-vragen\n\n"
+                "Blijf gefocust op het verzamelen van profielinformatie. Als de student afdwaalt, leid het gesprek vriendelijk terug naar intake-vragen."
             ),
         }
     ]
@@ -429,7 +439,12 @@ def generate_initial_profile_greeting(session: ProfileChatSession) -> str:
         # Add a prompt to generate a greeting
         messages.append({
             "role": "user",
-            "content": "Start de intake met een vriendelijke begroeting en stel de eerste vraag om het leerprofiel op te bouwen."
+            "content": (
+                "Start de intake met een vriendelijke begroeting. "
+                "Leg kort uit dat je hier bent om het leerprofiel op te bouwen door vragen te stellen over voorkeuren en doelen. "
+                "Stel daarna de eerste vraag om het leerprofiel op te bouwen. "
+                "Verwijs niet naar het beantwoorden van educatieve vragen - die zijn voor de cursus-chats."
+            )
         })
         
         completion = client.chat.completions.create(
