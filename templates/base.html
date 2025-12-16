@@ -5,6 +5,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>{% block title %}A.L.E.R.S.{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+  <style>
+    /* Markdown styling for chat messages */
+    .prose code {
+      background-color: rgba(0, 0, 0, 0.05);
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+      font-size: 0.875em;
+      font-family: 'Courier New', monospace;
+    }
+    .prose pre {
+      background-color: rgba(0, 0, 0, 0.05);
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+    }
+    .prose pre code {
+      background-color: transparent;
+      padding: 0;
+    }
+    .prose ul, .prose ol {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+    }
+    .prose li {
+      margin: 0.25rem 0;
+    }
+    .prose blockquote {
+      border-left: 3px solid rgba(0, 0, 0, 0.1);
+      padding-left: 1rem;
+      margin: 0.5rem 0;
+      font-style: italic;
+    }
+    .prose strong {
+      font-weight: 600;
+    }
+    .prose em {
+      font-style: italic;
+    }
+    .prose p {
+      margin: 0.5rem 0;
+    }
+    .prose p:first-child {
+      margin-top: 0;
+    }
+    .prose p:last-child {
+      margin-bottom: 0;
+    }
+  </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
 <header class="bg-white border-b border-slate-200">

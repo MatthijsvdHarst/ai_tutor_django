@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load markdown_extras %}
 {% block title %}Profiel intake{% endblock %}
 {% block content %}
 <section class="max-w-4xl mx-auto space-y-6">
@@ -13,7 +14,9 @@
                 <div class="flex">
                     <div class="ml-0 mr-auto max-w-xl rounded-2xl bg-blue-50 px-5 py-3 text-sm text-slate-700 shadow-sm">
                         <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold mb-1">{{ message.get_role_display }}</p>
-                        <p>{{ message.content|linebreaks }}</p>
+                        <div class="prose prose-sm text-slate-800 max-w-none">
+                            {{ message.content|render_markdown }}
+                        </div>
                     </div>
                 </div>
             {% elif message.role == 'user' %}
@@ -79,23 +82,54 @@
         }
     }
 
-    function createMessageBubble(role, text) {
+    // Configure marked.js for safe markdown rendering
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+        });
+    }
+
+    function renderMarkdown(text) {
+        if (typeof marked === 'undefined') {
+            // Fallback if marked.js isn't loaded
+            return text;
+        }
+        try {
+            return marked.parse(text);
+        } catch (e) {
+            console.error('Markdown rendering error:', e);
+            return text;
+        }
+    }
+
+    function createMessageBubble(role, text, isMarkdown = false) {
         const wrapper = document.createElement('div');
         wrapper.className = 'flex';
 
         const bubble = document.createElement('div');
-        bubble.classList.add('max-w-xl', 'rounded-2xl', 'px-5', 'py-3', 'text-sm', 'shadow-sm', 'whitespace-pre-line');
+        bubble.classList.add('max-w-xl', 'rounded-2xl', 'px-5', 'py-3', 'text-sm', 'shadow-sm');
 
         if (role === 'user') {
             bubble.classList.add('ml-auto', 'bg-slate-900', 'text-white');
-            bubble.innerText = text;
+            const contentDiv = document.createElement('p');
+            contentDiv.className = 'whitespace-pre-line';
+            contentDiv.textContent = text;
+            bubble.appendChild(contentDiv);
         } else {
             bubble.classList.add('mr-auto', 'bg-blue-50', 'text-slate-800');
-            bubble.innerText = text || '';
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'prose prose-sm text-slate-800 max-w-none';
+            if (isMarkdown && text) {
+                contentDiv.innerHTML = renderMarkdown(text);
+            } else {
+                contentDiv.textContent = text || '';
+            }
+            bubble.appendChild(contentDiv);
         }
 
         wrapper.appendChild(bubble);
-        return {wrapper, bubble};
+        return {wrapper, bubble, contentDiv: bubble.querySelector('div, p')};
     }
 
     async function streamMessage(event) {
@@ -118,13 +152,15 @@
         userMessageCount += 1;
         updateSaveHint();
 
-        // Assistant placeholder
-        const assistantBubble = createMessageBubble('assistant', '');
+        // Assistant placeholder with markdown support
+        const assistantBubble = createMessageBubble('assistant', '', true);
         chatBox.appendChild(assistantBubble.wrapper);
         scrollToBottom();
 
         if (spinner) spinner.classList.remove('hidden');
         if (sendButton) sendButton.disabled = true;
+
+        let accumulatedText = '';
 
         try {
             const response = await fetch(chatForm.dataset.streamUrl, {
@@ -139,7 +175,9 @@
             });
 
             if (!response.ok || !response.body) {
-                assistantBubble.bubble.innerText = 'Kon geen verbinding maken met de AI-service.';
+                if (assistantBubble.contentDiv) {
+                    assistantBubble.contentDiv.textContent = 'Kon geen verbinding maken met de AI-service.';
+                }
                 return;
             }
 
@@ -159,10 +197,15 @@
                         try {
                             const payload = JSON.parse(line.replace(/^data:\s*/, ''));
                             if (payload.type === 'token') {
-                                assistantBubble.bubble.innerText += payload.text;
+                                accumulatedText += payload.text;
+                                if (assistantBubble.contentDiv) {
+                                    assistantBubble.contentDiv.innerHTML = renderMarkdown(accumulatedText);
+                                }
                                 scrollToBottom();
                             } else if (payload.type === 'error') {
-                                assistantBubble.bubble.innerText = payload.message || 'Er ging iets mis.';
+                                if (assistantBubble.contentDiv) {
+                                    assistantBubble.contentDiv.textContent = payload.message || 'Er ging iets mis.';
+                                }
                                 throw new Error(payload.message || 'stream error');
                             }
                         } catch (err) {
@@ -174,7 +217,9 @@
             }
         } catch (err) {
             console.error(err);
-            assistantBubble.bubble.innerText = 'Er ging iets mis tijdens het streamen.';
+            if (assistantBubble.contentDiv) {
+                assistantBubble.contentDiv.textContent = 'Er ging iets mis tijdens het streamen.';
+            }
         } finally {
             if (spinner) spinner.classList.add('hidden');
             if (sendButton) sendButton.disabled = false;
