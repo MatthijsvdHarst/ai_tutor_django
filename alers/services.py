@@ -17,6 +17,7 @@ from .models import (
     ChatSession,
     Dashboard,
     Enrollment,
+    EnrollmentSummary,
     Message,
     ProfileChatSession,
     ProfileMessage,
@@ -107,6 +108,9 @@ SYSTEM_INSTRUCTIONS = (
     "zonder buiten de kaders van de dictaatstof te gaan. Geef duidelijke, gestructureerde uitleg en begeleid de student stap voor stap, "
     "zodat hij/zij zelf leert en inzicht opbouwt.\n"
 )
+
+SUMMARY_BATCH_SIZE = 5
+RECENT_VISIBLE_LIMIT = 8
 
 if OpenAI and settings.OPENAI_API_KEY:
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -226,6 +230,95 @@ def _build_chat_messages(session: ChatSession, user_message: str) -> list[dict]:
     return messages
 
 
+def _get_or_create_enrollment_summary(session: ChatSession) -> EnrollmentSummary:
+    summary, _ = EnrollmentSummary.objects.get_or_create(enrollment=session.enrollment)
+    return summary
+
+
+def _build_compact_chat_messages(session: ChatSession, user_message: str | None) -> list[dict]:
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_INSTRUCTIONS}]
+
+    system_history = session.messages.filter(role=Message.Role.SYSTEM).order_by("created_at")
+    messages.extend(message.to_chat_completion() for message in system_history)
+
+    summary = getattr(session.enrollment, "summary", None)
+    if summary and summary.summary:
+        messages.append(
+            {
+                "role": "system",
+                "content": f"Gespreks-samenvatting (tot nu toe):\n{summary.summary}",
+            }
+        )
+
+    visible_history = session.messages.filter(is_visible=True).exclude(role=Message.Role.SYSTEM).order_by("created_at")
+    if RECENT_VISIBLE_LIMIT:
+        recent = list(visible_history.order_by("-created_at")[:RECENT_VISIBLE_LIMIT])
+        recent.reverse()
+    else:
+        recent = list(visible_history)
+    messages.extend(message.to_chat_completion() for message in recent)
+
+    if user_message:
+        messages.append({"role": "user", "content": user_message})
+    return messages
+
+
+def _update_enrollment_summary_if_needed(session: ChatSession) -> None:
+    if client is None:
+        return
+
+    summary = _get_or_create_enrollment_summary(session)
+    visible_messages = Message.objects.filter(
+        chat_session__enrollment=session.enrollment,
+        is_visible=True,
+    ).exclude(role=Message.Role.SYSTEM).order_by("id")
+    if summary.last_summarized_message_id:
+        visible_messages = visible_messages.filter(id__gt=summary.last_summarized_message_id)
+
+    new_messages = list(visible_messages)
+    if len(new_messages) < SUMMARY_BATCH_SIZE:
+        return
+
+    lines: list[str] = []
+    for message in new_messages:
+        content = (message.content or "").strip()
+        if not content:
+            continue
+        lines.append(f"{message.role}: {content}")
+    if not lines:
+        return
+
+    prompt = (
+        "Je werkt een lopende samenvatting bij van wat de student al weet en heeft geoefend. "
+        "Houd het kort en bruikbaar (5-10 bullets). "
+        "Focus op: behandelde onderwerpen, begrip, fouten, open vragen, en de volgende stap. "
+        "Schrijf in het Nederlands."
+    )
+    current_summary = summary.summary.strip() if summary.summary else "(nog leeg)"
+    user_content = (
+        "Bestaande samenvatting:\n"
+        f"{current_summary}\n\n"
+        "Nieuwe berichten:\n"
+        f"{chr(10).join(lines)}"
+    )
+    model_name = getattr(settings, "OPENAI_MODEL", None) or "gpt-4o-mini"
+
+    completion = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0.4,
+        max_tokens=300,
+        top_p=1,
+    )
+    summary_text = completion.choices[0].message.content or ""
+    summary.summary = summary_text.strip()
+    summary.last_summarized_message_id = new_messages[-1].id
+    summary.save(update_fields=["summary", "last_summarized_message_id", "updated_at"])
+
+
 def stream_chat_completion(
         *,
         session: ChatSession,
@@ -247,7 +340,7 @@ def stream_chat_completion(
     try:
         stream = client.chat.completions.create(
             model=model_name,
-            messages=_build_chat_messages(session, user_message),
+            messages=_build_compact_chat_messages(session, user_message),
             temperature=1,
             max_tokens=4048,
             top_p=1,
@@ -271,6 +364,7 @@ def stream_chat_completion(
 
     assistant_reply = "".join(collected)
     _persist_assistant_reply(session, user_message, assistant_reply)
+    _update_enrollment_summary_if_needed(session)
 
     return
 
