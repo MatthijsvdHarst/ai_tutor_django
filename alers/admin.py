@@ -23,3 +23,16 @@ admin.site.register(models.Message)
 admin.site.register(models.Profile)
 admin.site.register(models.Checkpoint)
 admin.site.register(models.Dashboard)
+
+
+@admin.register(models.EnrollmentSummary)
+class EnrollmentSummaryAdmin(admin.ModelAdmin):
+    list_display = ("id", "enrollment", "updated_at", "last_summarized_message_id")
+    list_filter = ("updated_at", "enrollment__course")
+    search_fields = (
+        "summary",
+        "enrollment__user__username",
+        "enrollment__user__first_name",
+        "enrollment__user__last_name",
+        "enrollment__course__name",
+    )

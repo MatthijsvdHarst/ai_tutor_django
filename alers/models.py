@@ -297,6 +297,14 @@ class ChatSession(models.Model):
         Message.objects.bulk_create(messages)
 
 
+class EnrollmentSummary(models.Model):
+    enrollment = models.OneToOneField(Enrollment, related_name="summary", on_delete=models.CASCADE)
+    summary = models.TextField(blank=True)
+    last_summarized_message_id = models.PositiveIntegerField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class Message(models.Model):
     class Role(models.TextChoices):
         USER = "user", "User"
